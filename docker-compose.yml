@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agentforge-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Application
+      - APP_NAME=AgentForge
+      - ENV=production
+      - DEBUG=False
+      - LOG_LEVEL=INFO
+
+      # API Configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+      # Database
+      - DATABASE_URL=sqlite+aiosqlite:///./data/agentforge.db
+
+      # Vector Store
+      - CHROMA_PERSIST_DIRECTORY=./data/chroma_data
+
+      # LLM API Keys (REQUIRED - Set these!)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+
+      # Embeddings
+      - EMBEDDING_MODEL=sentence-transformers
+      - EMBEDDING_MODEL_NAME=all-MiniLM-L6-v2
+
+      # Document Upload
+      - MAX_UPLOAD_SIZE_MB=10
+      - ALLOWED_EXTENSIONS=pdf,txt,md,docx
+
+      # Rate Limiting
+      - CHAT_RATE_LIMIT=60
+    volumes:
+      - backend-data:/app/data
+      - chroma-data:/app/chroma_data
+    networks:
+      - agentforge-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agentforge-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - agentforge-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+networks:
+  agentforge-network:
+    driver: bridge
+
+volumes:
+  backend-data:
+    driver: local
+  chroma-data:
+    driver: local
