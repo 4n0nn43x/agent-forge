@@ -7,8 +7,20 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.schema import Document
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_openai import OpenAIEmbeddings
+from chromadb.api.types import EmbeddingFunction, Documents
 
 logger = logging.getLogger(__name__)
+
+
+class LangChainEmbeddingAdapter(EmbeddingFunction):
+    """Adapter to make LangChain embeddings compatible with ChromaDB"""
+
+    def __init__(self, langchain_embedding):
+        self.langchain_embedding = langchain_embedding
+
+    def __call__(self, input: Documents) -> List[List[float]]:
+        """ChromaDB interface: embed a list of documents"""
+        return self.langchain_embedding.embed_documents(input)
 
 
 class RAGEngine:
@@ -32,17 +44,19 @@ class RAGEngine:
                 raise ValueError("OPENAI_API_KEY not set but OpenAI embeddings requested")
 
             logger.info("Using OpenAI embeddings")
-            return OpenAIEmbeddings(api_key=api_key)
+            langchain_emb = OpenAIEmbeddings(api_key=api_key)
+            return LangChainEmbeddingAdapter(langchain_emb)
 
         else:  # sentence-transformers (default)
             model_name = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
             logger.info(f"Using HuggingFace embeddings: {model_name}")
 
-            return HuggingFaceEmbeddings(
+            langchain_emb = HuggingFaceEmbeddings(
                 model_name=model_name,
                 model_kwargs={"device": "cpu"},
                 encode_kwargs={"normalize_embeddings": True},
             )
+            return LangChainEmbeddingAdapter(langchain_emb)
 
     def get_embedding_function(self):
         """Get the embedding function for use with vector store"""
