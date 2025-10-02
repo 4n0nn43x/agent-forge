@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, RotateCcw, FileText, Upload } from 'lucide-react';
+import { ArrowLeft, Send, RotateCcw, FileText, Upload, MessageSquare } from 'lucide-react';
 import useAgentStore from '../../store/agentStore';
 import * as api from '../../services/api';
 import LoadingSpinner from '../Common/LoadingSpinner';
 import Alert from '../Common/Alert';
 import ChatMessage from './ChatMessage';
 import DocumentPanel from './DocumentPanel';
+import ConversationList from './ConversationList';
 
 const ChatInterface = () => {
   const { agentId } = useParams();
@@ -19,6 +20,9 @@ const ChatInterface = () => {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [showDocPanel, setShowDocPanel] = useState(false);
+  const [showConversations, setShowConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [conversationListKey, setConversationListKey] = useState(0);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -35,6 +39,36 @@ const ChatInterface = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const loadConversationMessages = async (convId) => {
+    try {
+      setLoadingMessages(true);
+      setError(null);
+      const response = await api.getConversationMessages(convId);
+      setMessages(response.data);
+      setConversationId(convId);
+    } catch (err) {
+      setError('Failed to load conversation history');
+      console.error('Error loading messages:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const handleSelectConversation = (convId) => {
+    loadConversationMessages(convId);
+  };
+
+  const handleNewChat = () => {
+    if (
+      messages.length > 0 &&
+      window.confirm('Start a new conversation? Current chat will be saved.')
+    ) {
+      setMessages([]);
+      setConversationId(null);
+      setError(null);
+    }
   };
 
   const handleSend = async () => {
@@ -74,6 +108,9 @@ const ChatInterface = () => {
           sources: response.data.sources,
         },
       ]);
+
+      // Refresh conversation list
+      setConversationListKey((prev) => prev + 1);
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to send message');
     } finally {
@@ -86,17 +123,6 @@ const ChatInterface = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
-    }
-  };
-
-  const handleReset = () => {
-    if (
-      messages.length > 0 &&
-      window.confirm('Start a new conversation? Current chat will be saved.')
-    ) {
-      setMessages([]);
-      setConversationId(null);
-      setError(null);
     }
   };
 
@@ -132,6 +158,13 @@ const ChatInterface = () => {
 
           <div className="flex items-center space-x-2">
             <button
+              onClick={() => setShowConversations(!showConversations)}
+              className="btn btn-secondary flex items-center space-x-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>History</span>
+            </button>
+            <button
               onClick={() => setShowDocPanel(!showDocPanel)}
               className="btn btn-secondary flex items-center space-x-2"
             >
@@ -139,7 +172,7 @@ const ChatInterface = () => {
               <span>{currentAgent.document_count} Docs</span>
             </button>
             <button
-              onClick={handleReset}
+              onClick={handleNewChat}
               className="btn btn-secondary flex items-center space-x-2"
               disabled={messages.length === 0}
             >
@@ -151,6 +184,19 @@ const ChatInterface = () => {
       </div>
 
       <div className="flex space-x-4">
+        {/* Conversation History */}
+        {showConversations && (
+          <div className="w-80">
+            <ConversationList
+              key={conversationListKey}
+              agentId={parseInt(agentId)}
+              currentConversationId={conversationId}
+              onSelectConversation={handleSelectConversation}
+              onNewChat={handleNewChat}
+            />
+          </div>
+        )}
+
         {/* Chat Area */}
         <div className="flex-1">
           {/* Error Alert */}
@@ -163,7 +209,11 @@ const ChatInterface = () => {
           {/* Messages */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[600px] flex flex-col">
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {messages.length === 0 ? (
+              {loadingMessages ? (
+                <div className="flex items-center justify-center h-full">
+                  <LoadingSpinner size="lg" text="Loading conversation..." />
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-center">
                   <div>
                     <div className="text-6xl mb-4">💬</div>
