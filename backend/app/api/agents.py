@@ -192,14 +192,19 @@ async def duplicate_agent(agent_id: int, new_name: str, db: AsyncSession = Depen
 # Helper function
 async def get_agent_response(agent: Agent, db: AsyncSession) -> AgentResponse:
     """Build AgentResponse with counts"""
+    from ..models import Document, Conversation
+
     # Get document count
     doc_count_result = await db.execute(
-        select(func.count()).select_from(agent.documents.__class__).where(agent.documents.any())
+        select(func.count()).select_from(Document).where(Document.agent_id == agent.id)
     )
-    doc_count = len(agent.documents) if agent.documents else 0
+    doc_count = doc_count_result.scalar() or 0
 
     # Get conversation count
-    conv_count = len(agent.conversations) if agent.conversations else 0
+    conv_count_result = await db.execute(
+        select(func.count()).select_from(Conversation).where(Conversation.agent_id == agent.id)
+    )
+    conv_count = conv_count_result.scalar() or 0
 
     return AgentResponse(
         id=agent.id,
