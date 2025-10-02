@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import noload
 from typing import List, Optional
 import os
 import logging
@@ -99,7 +100,11 @@ async def list_agents(
 ):
     """List all agents"""
     result = await db.execute(
-        select(Agent).offset(skip).limit(limit).order_by(Agent.created_at.desc())
+        select(Agent)
+        .options(noload(Agent.documents), noload(Agent.conversations))
+        .offset(skip)
+        .limit(limit)
+        .order_by(Agent.created_at.desc())
     )
     agents = result.scalars().all()
 
@@ -109,7 +114,11 @@ async def list_agents(
 @router.get("/{agent_id}", response_model=AgentResponse)
 async def get_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
     """Get a specific agent"""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    result = await db.execute(
+        select(Agent)
+        .options(noload(Agent.documents), noload(Agent.conversations))
+        .where(Agent.id == agent_id)
+    )
     agent = result.scalar_one_or_none()
 
     if not agent:
@@ -123,7 +132,11 @@ async def update_agent(
     agent_id: int, agent_data: AgentUpdate, db: AsyncSession = Depends(get_db)
 ):
     """Update an agent"""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    result = await db.execute(
+        select(Agent)
+        .options(noload(Agent.documents), noload(Agent.conversations))
+        .where(Agent.id == agent_id)
+    )
     agent = result.scalar_one_or_none()
 
     if not agent:
@@ -144,7 +157,11 @@ async def update_agent(
 @router.delete("/{agent_id}")
 async def delete_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
     """Delete an agent"""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    result = await db.execute(
+        select(Agent)
+        .options(noload(Agent.documents), noload(Agent.conversations))
+        .where(Agent.id == agent_id)
+    )
     agent = result.scalar_one_or_none()
 
     if not agent:
@@ -161,7 +178,11 @@ async def delete_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
 @router.post("/{agent_id}/duplicate", response_model=AgentResponse)
 async def duplicate_agent(agent_id: int, new_name: str, db: AsyncSession = Depends(get_db)):
     """Duplicate an existing agent"""
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    result = await db.execute(
+        select(Agent)
+        .options(noload(Agent.documents), noload(Agent.conversations))
+        .where(Agent.id == agent_id)
+    )
     original = result.scalar_one_or_none()
 
     if not original:
@@ -196,13 +217,13 @@ async def get_agent_response(agent: Agent, db: AsyncSession) -> AgentResponse:
 
     # Get document count
     doc_count_result = await db.execute(
-        select(func.count()).select_from(Document).where(Document.agent_id == agent.id)
+        select(func.count(Document.id)).where(Document.agent_id == agent.id)
     )
     doc_count = doc_count_result.scalar() or 0
 
     # Get conversation count
     conv_count_result = await db.execute(
-        select(func.count()).select_from(Conversation).where(Conversation.agent_id == agent.id)
+        select(func.count(Conversation.id)).where(Conversation.agent_id == agent.id)
     )
     conv_count = conv_count_result.scalar() or 0
 
