@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from typing import List
 import os
 import logging
@@ -9,6 +10,7 @@ import logging
 from ..database import get_db
 from ..models import (
     Agent,
+    Message,
     ChatMessage,
     ChatResponse,
     DocumentUpload,
@@ -142,17 +144,27 @@ async def list_conversations(agent_id: int, db: AsyncSession = Depends(get_db)):
     try:
         conversations = await agent_manager.get_conversations(db, agent_id)
 
-        return [
-            ConversationResponse(
-                id=conv.id,
-                conversation_id=conv.conversation_id,
-                title=conv.title,
-                created_at=conv.created_at,
-                updated_at=conv.updated_at,
-                message_count=len(conv.messages) if conv.messages else 0,
+        # Build response with message counts
+        result = []
+        for conv in conversations:
+            # Count messages for this conversation
+            msg_count_result = await db.execute(
+                select(func.count(Message.id)).where(Message.conversation_id == conv.id)
             )
-            for conv in conversations
-        ]
+            msg_count = msg_count_result.scalar() or 0
+
+            result.append(
+                ConversationResponse(
+                    id=conv.id,
+                    conversation_id=conv.conversation_id,
+                    title=conv.title,
+                    created_at=conv.created_at,
+                    updated_at=conv.updated_at,
+                    message_count=msg_count,
+                )
+            )
+
+        return result
 
     except Exception as e:
         logger.error(f"Error listing conversations: {e}")
