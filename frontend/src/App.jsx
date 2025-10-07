@@ -14,10 +14,12 @@ function App() {
     fetchTemplates();
   }, [fetchTemplates]);
 
+  const isChatPage = location.pathname.startsWith('/agent/');
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={isChatPage ? "h-screen bg-gray-50 flex flex-col" : "min-h-screen bg-gray-50"}>
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <Link to="/" className="flex items-center space-x-2">
@@ -51,7 +53,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={isChatPage ? "flex-1 overflow-hidden" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/create" element={<AgentBuilder />} />
@@ -59,15 +61,17 @@ function App() {
         </Routes>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="text-center text-gray-500 text-sm">
-            <p>AgentForge - No-Code AI Agent Builder</p>
-            <p className="mt-1">Built for NodeOps Hackathon 2025</p>
+      {/* Footer - Hidden on chat page */}
+      {!isChatPage && (
+        <footer className="bg-white border-t border-gray-200 mt-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="text-center text-gray-500 text-sm">
+              <p>AgentForge - No-Code AI Agent Builder</p>
+              <p className="mt-1">Built for NodeOps Hackathon 2025</p>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }

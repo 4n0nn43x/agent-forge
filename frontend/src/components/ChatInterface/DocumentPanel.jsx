@@ -54,8 +54,8 @@ const DocumentPanel = ({ agentId }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-[600px] flex flex-col">
-      <div className="mb-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-full flex flex-col">
+      <div className="mb-4 flex-shrink-0">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Documents</h3>
 
         {/* Upload Button */}
@@ -88,18 +88,18 @@ const DocumentPanel = ({ agentId }) => {
 
       {/* Alerts */}
       {error && (
-        <div className="mb-3">
+        <div className="mb-3 flex-shrink-0">
           <Alert type="error" message={error} onClose={() => setError(null)} />
         </div>
       )}
       {success && (
-        <div className="mb-3">
+        <div className="mb-3 flex-shrink-0">
           <Alert type="success" message={success} onClose={() => setSuccess(null)} />
         </div>
       )}
 
       {/* Documents List */}
-      <div className="flex-1 overflow-y-auto space-y-2">
+      <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="w-6 h-6 animate-spin text-gray-400" />

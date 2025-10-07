@@ -135,9 +135,9 @@ const ChatInterface = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+    <div className="max-w-6xl mx-auto h-full flex flex-col p-4">
+      {/* Header - Fixed */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
@@ -183,10 +183,11 @@ const ChatInterface = () => {
         </div>
       </div>
 
-      <div className="flex space-x-4">
+      {/* Main Content - Flexible */}
+      <div className="flex space-x-4 flex-1 min-h-0">
         {/* Conversation History */}
         {showConversations && (
-          <div className="w-80">
+          <div className="w-80 flex-shrink-0">
             <ConversationList
               key={conversationListKey}
               agentId={parseInt(agentId)}
@@ -198,16 +199,17 @@ const ChatInterface = () => {
         )}
 
         {/* Chat Area */}
-        <div className="flex-1">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Error Alert */}
           {error && (
-            <div className="mb-4">
+            <div className="mb-4 flex-shrink-0">
               <Alert type="error" message={error} onClose={() => setError(null)} />
             </div>
           )}
 
-          {/* Messages */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[600px] flex flex-col">
+          {/* Messages Container */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
+            {/* Messages - Scrollable */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
@@ -243,8 +245,8 @@ const ChatInterface = () => {
               )}
             </div>
 
-            {/* Input Area */}
-            <div className="border-t border-gray-200 p-4">
+            {/* Input Area - Fixed */}
+            <div className="border-t border-gray-200 p-4 flex-shrink-0">
               <div className="flex space-x-3">
                 <textarea
                   ref={inputRef}
@@ -273,7 +275,7 @@ const ChatInterface = () => {
 
         {/* Document Panel */}
         {showDocPanel && (
-          <div className="w-80">
+          <div className="w-80 flex-shrink-0">
             <DocumentPanel agentId={parseInt(agentId)} />
           </div>
         )}

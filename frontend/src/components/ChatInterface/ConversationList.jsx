@@ -48,10 +48,10 @@ const ConversationList = ({ agentId, currentConversationId, onSelectConversation
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[600px] flex flex-col">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
+      <div className="p-4 border-b border-gray-200 flex-shrink-0">
+        <div className="flex items-center justify-between">
           <h3 className="font-semibold text-gray-900">Conversations</h3>
           <button
             onClick={onNewChat}
@@ -64,7 +64,7 @@ const ConversationList = ({ agentId, currentConversationId, onSelectConversation
       </div>
 
       {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center p-6">
             <MessageSquare className="w-12 h-12 text-gray-400 mb-3" />
