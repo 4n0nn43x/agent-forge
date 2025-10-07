@@ -328,17 +328,23 @@ const ChatInterface = () => {
 
           {/* Documents Tab */}
           {activeTab === 'docs' && (
-            <DocumentPanel agentId={parseInt(agentId)} />
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <DocumentPanel agentId={parseInt(agentId)} />
+            </div>
           )}
 
           {/* API Keys Tab */}
           {activeTab === 'api-keys' && (
-            <APIKeyManager agentId={parseInt(agentId)} />
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <APIKeyManager agentId={parseInt(agentId)} />
+            </div>
           )}
 
           {/* Widget Tab */}
           {activeTab === 'widget' && (
-            <WidgetCode agentId={parseInt(agentId)} agentName={currentAgent.name} />
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <WidgetCode agentId={parseInt(agentId)} agentName={currentAgent.name} />
+            </div>
           )}
         </div>
       </div>
