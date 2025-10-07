@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, RotateCcw, FileText, Upload, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Send, RotateCcw, FileText, Upload, MessageSquare, Key, Code2 } from 'lucide-react';
 import useAgentStore from '../../store/agentStore';
 import * as api from '../../services/api';
 import LoadingSpinner from '../Common/LoadingSpinner';
@@ -8,6 +8,8 @@ import Alert from '../Common/Alert';
 import ChatMessage from './ChatMessage';
 import DocumentPanel from './DocumentPanel';
 import ConversationList from './ConversationList';
+import APIKeyManager from './APIKeyManager';
+import WidgetCode from './WidgetCode';
 
 const ChatInterface = () => {
   const { agentId } = useParams();
@@ -19,7 +21,7 @@ const ChatInterface = () => {
   const [conversationId, setConversationId] = useState(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
-  const [showDocPanel, setShowDocPanel] = useState(false);
+  const [activeTab, setActiveTab] = useState('chat'); // chat, docs, api-keys, widget
   const [showConversations, setShowConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [conversationListKey, setConversationListKey] = useState(0);
@@ -157,36 +159,83 @@ const ChatInterface = () => {
           </div>
 
           <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowConversations(!showConversations)}
-              className="btn btn-secondary flex items-center space-x-2"
-            >
-              <MessageSquare className="w-4 h-4" />
-              <span>History</span>
-            </button>
-            <button
-              onClick={() => setShowDocPanel(!showDocPanel)}
-              className="btn btn-secondary flex items-center space-x-2"
-            >
-              <FileText className="w-4 h-4" />
-              <span>{currentAgent.document_count} Docs</span>
-            </button>
-            <button
-              onClick={handleNewChat}
-              className="btn btn-secondary flex items-center space-x-2"
-              disabled={messages.length === 0}
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>New Chat</span>
-            </button>
+            {activeTab === 'chat' && (
+              <button
+                onClick={() => setShowConversations(!showConversations)}
+                className="btn btn-secondary flex items-center space-x-2"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>History</span>
+              </button>
+            )}
+            {activeTab === 'chat' && (
+              <button
+                onClick={handleNewChat}
+                className="btn btn-secondary flex items-center space-x-2"
+                disabled={messages.length === 0}
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>New Chat</span>
+              </button>
+            )}
           </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 flex-shrink-0">
+        <div className="flex border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab('chat')}
+            className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'chat'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Chat</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('docs')}
+            className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'docs'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Documents ({currentAgent.document_count})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('api-keys')}
+            className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'api-keys'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+            }`}
+          >
+            <Key className="w-4 h-4" />
+            <span>API Keys</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('widget')}
+            className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'widget'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+            }`}
+          >
+            <Code2 className="w-4 h-4" />
+            <span>Widget & API</span>
+          </button>
         </div>
       </div>
 
       {/* Main Content - Flexible */}
       <div className="flex space-x-4 flex-1 min-h-0">
-        {/* Conversation History */}
-        {showConversations && (
+        {/* Conversation History - Only show on chat tab */}
+        {activeTab === 'chat' && showConversations && (
           <div className="w-80 flex-shrink-0">
             <ConversationList
               key={conversationListKey}
@@ -198,87 +247,100 @@ const ChatInterface = () => {
           </div>
         )}
 
-        {/* Chat Area */}
+        {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Error Alert */}
-          {error && (
-            <div className="mb-4 flex-shrink-0">
-              <Alert type="error" message={error} onClose={() => setError(null)} />
-            </div>
-          )}
+          {/* Chat Tab */}
+          {activeTab === 'chat' && (
+            <>
+              {/* Error Alert */}
+              {error && (
+                <div className="mb-4 flex-shrink-0">
+                  <Alert type="error" message={error} onClose={() => setError(null)} />
+                </div>
+              )}
 
-          {/* Messages Container */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
-            {/* Messages - Scrollable */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {loadingMessages ? (
-                <div className="flex items-center justify-center h-full">
-                  <LoadingSpinner size="lg" text="Loading conversation..." />
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-center">
-                  <div>
-                    <div className="text-6xl mb-4">💬</div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      Start a conversation
-                    </h3>
-                    <p className="text-gray-600 max-w-sm">
-                      Ask me anything! I'll use the knowledge base to provide
-                      accurate answers.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {messages.map((msg, idx) => (
-                    <ChatMessage key={idx} message={msg} />
-                  ))}
-                  {sending && (
-                    <div className="flex justify-start">
-                      <div className="bg-gray-100 rounded-lg px-4 py-3">
-                        <LoadingSpinner size="sm" />
+              {/* Messages Container */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
+                {/* Messages - Scrollable */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  {loadingMessages ? (
+                    <div className="flex items-center justify-center h-full">
+                      <LoadingSpinner size="lg" text="Loading conversation..." />
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-center">
+                      <div>
+                        <div className="text-6xl mb-4">💬</div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          Start a conversation
+                        </h3>
+                        <p className="text-gray-600 max-w-sm">
+                          Ask me anything! I'll use the knowledge base to provide
+                          accurate answers.
+                        </p>
                       </div>
                     </div>
+                  ) : (
+                    <>
+                      {messages.map((msg, idx) => (
+                        <ChatMessage key={idx} message={msg} />
+                      ))}
+                      {sending && (
+                        <div className="flex justify-start">
+                          <div className="bg-gray-100 rounded-lg px-4 py-3">
+                            <LoadingSpinner size="sm" />
+                          </div>
+                        </div>
+                      )}
+                      <div ref={messagesEndRef} />
+                    </>
                   )}
-                  <div ref={messagesEndRef} />
-                </>
-              )}
-            </div>
+                </div>
 
-            {/* Input Area - Fixed */}
-            <div className="border-t border-gray-200 p-4 flex-shrink-0">
-              <div className="flex space-x-3">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message..."
-                  className="flex-1 resize-none input"
-                  rows={2}
-                  disabled={sending}
-                />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || sending}
-                  className="btn btn-primary px-6"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+                {/* Input Area - Fixed */}
+                <div className="border-t border-gray-200 p-4 flex-shrink-0">
+                  <div className="flex space-x-3">
+                    <textarea
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Type your message..."
+                      className="flex-1 resize-none input"
+                      rows={2}
+                      disabled={sending}
+                    />
+                    <button
+                      onClick={handleSend}
+                      disabled={!input.trim() || sending}
+                      className="btn btn-primary px-6"
+                    >
+                      <Send className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Press Enter to send, Shift+Enter for new line
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Press Enter to send, Shift+Enter for new line
-              </p>
-            </div>
-          </div>
-        </div>
+            </>
+          )}
 
-        {/* Document Panel */}
-        {showDocPanel && (
-          <div className="w-80 flex-shrink-0">
+          {/* Documents Tab */}
+          {activeTab === 'docs' && (
             <DocumentPanel agentId={parseInt(agentId)} />
-          </div>
-        )}
+          )}
+
+          {/* API Keys Tab */}
+          {activeTab === 'api-keys' && (
+            <APIKeyManager agentId={parseInt(agentId)} />
+          )}
+
+          {/* Widget Tab */}
+          {activeTab === 'widget' && (
+            <WidgetCode agentId={parseInt(agentId)} agentName={currentAgent.name} />
+          )}
+        </div>
       </div>
     </div>
   );
