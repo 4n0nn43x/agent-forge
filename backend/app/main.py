@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from .database import init_db
-from .api import agents, chat
+from .api import agents, chat, api_keys, public
 
 # Load environment variables
 load_dotenv()
@@ -77,6 +77,8 @@ app.add_middleware(
 # Include routers
 app.include_router(agents.router)
 app.include_router(chat.router)
+app.include_router(api_keys.router)
+app.include_router(public.router)
 
 
 @app.get("/")

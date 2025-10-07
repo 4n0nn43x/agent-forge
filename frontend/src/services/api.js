@@ -63,6 +63,18 @@ export const getConversations = (agentId) => api.get(`/api/agents/${agentId}/con
 export const getConversationMessages = (conversationId) =>
   api.get(`/api/agents/conversations/${conversationId}/messages`);
 
+// API Keys
+export const createAPIKey = (agentId, keyData) =>
+  api.post(`/api/agents/${agentId}/api-keys`, keyData);
+
+export const getAPIKeys = (agentId) => api.get(`/api/agents/${agentId}/api-keys`);
+
+export const deleteAPIKey = (agentId, keyId) =>
+  api.delete(`/api/agents/${agentId}/api-keys/${keyId}`);
+
+export const toggleAPIKey = (agentId, keyId) =>
+  api.patch(`/api/agents/${agentId}/api-keys/${keyId}/toggle`);
+
 // Health check
 export const healthCheck = () => api.get('/health');
 

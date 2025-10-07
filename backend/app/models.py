@@ -81,6 +81,24 @@ class Message(Base):
     conversation = relationship("Conversation", back_populates="messages")
 
 
+class APIKey(Base):
+    """API Keys for public API access"""
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    key = Column(String(64), unique=True, index=True, nullable=False)  # API key
+    name = Column(String(255), nullable=False)  # Human-readable name
+    is_active = Column(Integer, default=1)  # 1 for active, 0 for disabled
+    rate_limit = Column(Integer, default=100)  # Requests per hour
+    allowed_origins = Column(Text, nullable=True)  # Comma-separated domains
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    agent = relationship("Agent")
+
+
 # Pydantic Schemas (for API requests/responses)
 
 class AgentCreate(BaseModel):
@@ -178,6 +196,29 @@ class MessageResponse(BaseModel):
     content: str
     timestamp: datetime
     tokens_used: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class APIKeyCreate(BaseModel):
+    """Schema for creating an API key"""
+    name: str = Field(..., min_length=1, max_length=255)
+    rate_limit: int = Field(default=100, ge=1, le=10000)
+    allowed_origins: Optional[str] = None
+
+
+class APIKeyResponse(BaseModel):
+    """Schema for API key response"""
+    id: int
+    agent_id: int
+    key: str
+    name: str
+    is_active: bool
+    rate_limit: int
+    allowed_origins: Optional[str]
+    created_at: datetime
+    last_used_at: Optional[datetime]
 
     class Config:
         from_attributes = True
