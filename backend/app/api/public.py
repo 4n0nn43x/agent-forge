@@ -104,12 +104,13 @@ async def public_chat(
     agent, api_key = auth_data
 
     try:
-        # Use agent_manager.chat() like in chat.py
+        # Use agent_manager.chat() - mark as widget source to separate from platform conversations
         result = await agent_manager.chat(
             db=db,
             agent_id=agent.id,
             message=message_data.message,
             conversation_id=message_data.conversation_id,
+            source="widget",
         )
 
         return ChatResponse(
@@ -134,11 +135,12 @@ async def list_conversations(
     auth_data: tuple[Agent, APIKey] = Depends(verify_api_key),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all conversations for the authenticated agent"""
+    """List all widget/public API conversations for the authenticated agent"""
     agent, _ = auth_data
 
     try:
-        conversations = await agent_manager.get_conversations(db, agent.id)
+        # Only return widget conversations for public API
+        conversations = await agent_manager.get_conversations(db, agent.id, source="widget")
 
         # Build response with message counts
         from sqlalchemy import select, func

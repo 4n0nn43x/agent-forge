@@ -186,6 +186,7 @@ class AgentManager:
         agent_id: int,
         message: str,
         conversation_id: Optional[str] = None,
+        source: str = "platform",
     ) -> Dict[str, Any]:
         """
         Handle chat interaction with agent
@@ -195,6 +196,7 @@ class AgentManager:
             agent_id: Agent ID
             message: User message
             conversation_id: Optional existing conversation ID
+            source: Source of the conversation (platform, public_api, widget)
 
         Returns:
             Dictionary with response and metadata
@@ -219,6 +221,7 @@ class AgentManager:
                 agent_id=agent_id,
                 conversation_id=conversation_id,
                 title=message[:100] if len(message) > 100 else message,
+                source=source,
             )
             db.add(conversation)
             await db.commit()
@@ -325,13 +328,30 @@ class AgentManager:
             "tokens_used": assistant_msg.tokens_used,
         }
 
-    async def get_conversations(self, db: AsyncSession, agent_id: int) -> List[Conversation]:
-        """Get all conversations for an agent"""
-        result = await db.execute(
-            select(Conversation)
-            .where(Conversation.agent_id == agent_id)
-            .order_by(Conversation.updated_at.desc())
-        )
+    async def get_conversations(
+        self,
+        db: AsyncSession,
+        agent_id: int,
+        source: Optional[str] = "platform"
+    ) -> List[Conversation]:
+        """
+        Get all conversations for an agent
+
+        Args:
+            db: Database session
+            agent_id: Agent ID
+            source: Filter by source (platform, widget, public_api).
+                    Use None to get all conversations.
+        """
+        query = select(Conversation).where(Conversation.agent_id == agent_id)
+
+        # Filter by source if specified
+        if source is not None:
+            query = query.where(Conversation.source == source)
+
+        query = query.order_by(Conversation.updated_at.desc())
+
+        result = await db.execute(query)
         return result.scalars().all()
 
     async def get_conversation_messages(

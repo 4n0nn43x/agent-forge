@@ -58,6 +58,7 @@ class Conversation(Base):
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
     conversation_id = Column(String(100), unique=True, index=True)  # UUID
     title = Column(String(255), nullable=True)
+    source = Column(String(20), default="platform")  # platform, public_api, widget
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
