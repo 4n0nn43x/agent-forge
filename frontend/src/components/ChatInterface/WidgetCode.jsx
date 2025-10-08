@@ -7,6 +7,7 @@ const WidgetCode = ({ agentId, agentName }) => {
   const [apiKeys, setApiKeys] = useState([]);
   const [selectedKey, setSelectedKey] = useState('');
   const [copiedSection, setCopiedSection] = useState(null);
+  const [activeCodeTab, setActiveCodeTab] = useState('html');
   const [customization, setCustomization] = useState({
     position: 'bottom-right',
     primaryColor: '#3B82F6',
@@ -276,46 +277,103 @@ print(data['response'])`;
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex space-x-4">
-          {['HTML', 'React', 'API (JS)', 'API (Python)'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => {}}
-              className="px-4 py-2 font-medium text-gray-700 border-b-2 border-transparent hover:border-gray-300"
-            >
-              {tab}
-            </button>
-          ))}
+          <button
+            onClick={() => setActiveCodeTab('html')}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeCodeTab === 'html'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            HTML
+          </button>
+          <button
+            onClick={() => setActiveCodeTab('react')}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeCodeTab === 'react'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            React
+          </button>
+          <button
+            onClick={() => setActiveCodeTab('api-js')}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeCodeTab === 'api-js'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            API (JavaScript)
+          </button>
+          <button
+            onClick={() => setActiveCodeTab('api-python')}
+            className={`px-4 py-2 font-medium border-b-2 transition-colors ${
+              activeCodeTab === 'api-python'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            API (Python)
+          </button>
         </nav>
       </div>
 
       {/* Code Examples */}
-      <div className="space-y-6">
-        <div>
-          <div className="flex items-center space-x-2 mb-4">
-            <Code className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900">HTML Widget</h3>
+      <div>
+        {activeCodeTab === 'html' && (
+          <div>
+            <div className="flex items-center space-x-2 mb-4">
+              <Code className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">HTML Widget</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Add this code before the closing <code className="text-red-600">&lt;/body&gt;</code>{' '}
+              tag of your website:
+            </p>
+            <CodeBlock code={getWidgetCode()} section="html" title="Widget Installation" />
           </div>
-          <p className="text-sm text-gray-600 mb-3">
-            Add this code before the closing <code className="text-red-600">&lt;/body&gt;</code>{' '}
-            tag of your website:
-          </p>
-          <CodeBlock code={getWidgetCode()} section="html" title="Widget Installation" />
-        </div>
+        )}
 
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">React Component</h3>
-          <CodeBlock code={getReactCode()} section="react" title="React Integration" />
-        </div>
+        {activeCodeTab === 'react' && (
+          <div>
+            <div className="flex items-center space-x-2 mb-4">
+              <Code className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">React Component</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Create a component and include it in your React application:
+            </p>
+            <CodeBlock code={getReactCode()} section="react" title="React Integration" />
+          </div>
+        )}
 
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Public API - JavaScript</h3>
-          <CodeBlock code={getAPIExample()} section="api-js" title="API Usage (JavaScript)" />
-        </div>
+        {activeCodeTab === 'api-js' && (
+          <div>
+            <div className="flex items-center space-x-2 mb-4">
+              <Code className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Public API - JavaScript</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Use fetch or axios to interact with the API from JavaScript/TypeScript:
+            </p>
+            <CodeBlock code={getAPIExample()} section="api-js" title="API Usage (JavaScript)" />
+          </div>
+        )}
 
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Public API - Python</h3>
-          <CodeBlock code={getPythonExample()} section="api-python" title="API Usage (Python)" />
-        </div>
+        {activeCodeTab === 'api-python' && (
+          <div>
+            <div className="flex items-center space-x-2 mb-4">
+              <Code className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Public API - Python</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-3">
+              Use the requests library to interact with the API from Python:
+            </p>
+            <CodeBlock code={getPythonExample()} section="api-python" title="API Usage (Python)" />
+          </div>
+        )}
       </div>
 
       {/* Documentation Link */}
