@@ -38,10 +38,16 @@ router = APIRouter(prefix="/api/v1/public", tags=["Public API"])
 
 
 async def verify_api_key(
-    authorization: str = Header(..., description="Bearer <api_key>"),
+    authorization: Optional[str] = Header(None, description="Bearer <api_key>"),
     db: AsyncSession = Depends(get_db),
 ) -> tuple[Agent, APIKey]:
     """Verify API key and return associated agent"""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authorization header. Use: Authorization: Bearer <api_key>",
+        )
+
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
