@@ -64,7 +64,12 @@ app = FastAPI(
 )
 
 # Configure CORS
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173").split(",")
+# In development, allow all localhost origins. In production, use CORS_ORIGINS env var
+env = os.getenv("ENV", "development")
+if env == "development":
+    cors_origins = ["*"]  # Allow all origins in development
+else:
+    cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
 
 app.add_middleware(
     CORSMiddleware,

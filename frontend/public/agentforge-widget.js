@@ -30,7 +30,8 @@
       subtitle: 'We typically reply in a few minutes',
       placeholder: 'Type your message...',
       avatar: null,
-      zIndex: 9999
+      zIndex: 9999,
+      welcomeMessage: 'Hi! 👋 How can I help you today?'
     },
 
     conversationId: null,
@@ -51,14 +52,26 @@
         return;
       }
 
-      // Load conversation ID from localStorage
+      // Load conversation ID and messages from localStorage
       this.conversationId = localStorage.getItem('agentforge_conversation_id');
+      const savedMessages = localStorage.getItem('agentforge_messages');
+      if (savedMessages) {
+        try {
+          this.messages = JSON.parse(savedMessages);
+        } catch (e) {
+          console.error('Failed to load messages from localStorage', e);
+          this.messages = [];
+        }
+      }
 
       // Create widget HTML
       this.createWidget();
 
       // Attach event listeners
       this.attachEventListeners();
+
+      // Load conversation history or show welcome message
+      this.loadConversationHistory();
     },
 
     createWidget: function() {
@@ -121,18 +134,35 @@
                   <div style="font-size: 12px; opacity: 0.9;">${this.config.subtitle}</div>
                 </div>
               </div>
-              <button id="agentforge-close" style="
-                background: transparent;
-                border: none;
-                color: white;
-                cursor: pointer;
-                padding: 4px;
-              ">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
+              <div style="display: flex; gap: 8px;">
+                <button id="agentforge-reset" style="
+                  background: transparent;
+                  border: none;
+                  color: white;
+                  cursor: pointer;
+                  padding: 4px;
+                  opacity: 0.7;
+                  transition: opacity 0.2s;
+                " title="New conversation">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <polyline points="23 20 23 14 17 14"></polyline>
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                  </svg>
+                </button>
+                <button id="agentforge-close" style="
+                  background: transparent;
+                  border: none;
+                  color: white;
+                  cursor: pointer;
+                  padding: 4px;
+                ">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <!-- Messages -->
@@ -145,9 +175,6 @@
               gap: 12px;
               background: #F9FAFB;
             ">
-              <div style="text-align: center; color: #6B7280; font-size: 14px; margin: 20px 0;">
-                Start a conversation
-              </div>
             </div>
 
             <!-- Input -->
@@ -168,6 +195,10 @@
                     border-radius: 8px;
                     font-size: 14px;
                     outline: none;
+                    font-family: inherit;
+                    color: #1F2937;
+                    background: white;
+                    box-sizing: border-box;
                   "
                 />
                 <button id="agentforge-send" style="
@@ -198,15 +229,45 @@
     attachEventListeners: function() {
       const button = document.getElementById('agentforge-button');
       const closeBtn = document.getElementById('agentforge-close');
+      const resetBtn = document.getElementById('agentforge-reset');
       const sendBtn = document.getElementById('agentforge-send');
       const input = document.getElementById('agentforge-input');
 
-      button.addEventListener('click', () => this.toggleChat());
-      closeBtn.addEventListener('click', () => this.toggleChat());
-      sendBtn.addEventListener('click', () => this.sendMessage());
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleChat();
+      });
+
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleChat();
+      });
+
+      resetBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.resetConversation();
+      });
+
+      resetBtn.addEventListener('mouseenter', function() {
+        this.style.opacity = '1';
+      });
+
+      resetBtn.addEventListener('mouseleave', function() {
+        this.style.opacity = '0.7';
+      });
+
+      sendBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.sendMessage();
+      });
 
       input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
           this.sendMessage();
         }
       });
@@ -218,6 +279,77 @@
       button.addEventListener('mouseleave', function() {
         this.style.transform = 'scale(1)';
       });
+    },
+
+    resetConversation: function() {
+      if (confirm('Start a new conversation? Current chat history will be cleared.')) {
+        // Clear localStorage
+        localStorage.removeItem('agentforge_conversation_id');
+        localStorage.removeItem('agentforge_messages');
+
+        // Reset state
+        this.conversationId = null;
+        this.messages = [];
+
+        // Reload UI
+        this.loadConversationHistory();
+      }
+    },
+
+    loadConversationHistory: function() {
+      const messagesContainer = document.getElementById('agentforge-messages');
+
+      if (this.messages.length === 0) {
+        // Show welcome message for first-time users
+        const welcomeHTML = `
+          <div style="
+            display: flex;
+            justify-content: flex-start;
+          ">
+            <div style="
+              max-width: 70%;
+              padding: 12px 16px;
+              border-radius: 12px;
+              background: #FFFFFF;
+              color: #1F2937;
+              font-size: 14px;
+              line-height: 1.5;
+              box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            ">
+              ${this.config.welcomeMessage}
+            </div>
+          </div>
+        `;
+        messagesContainer.innerHTML = welcomeHTML;
+      } else {
+        // Load existing messages
+        messagesContainer.innerHTML = '';
+        this.messages.forEach(msg => {
+          const isUser = msg.role === 'user';
+          const messageHTML = `
+            <div style="
+              display: flex;
+              justify-content: ${isUser ? 'flex-end' : 'flex-start'};
+            ">
+              <div style="
+                max-width: 70%;
+                padding: 12px 16px;
+                border-radius: 12px;
+                background: ${isUser ? this.config.primaryColor : '#FFFFFF'};
+                color: ${isUser ? 'white' : '#1F2937'};
+                font-size: 14px;
+                line-height: 1.5;
+                box-shadow: ${isUser ? 'none' : '0 1px 2px rgba(0,0,0,0.1)'};
+                word-wrap: break-word;
+              ">
+                ${this.escapeHtml(msg.content)}
+              </div>
+            </div>
+          `;
+          messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
+        });
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
     },
 
     toggleChat: function() {
@@ -247,7 +379,7 @@
     addMessage: function(role, content) {
       const messagesContainer = document.getElementById('agentforge-messages');
 
-      // Remove welcome message if present
+      // Remove welcome message if present and this is the first real message
       if (this.messages.length === 0) {
         messagesContainer.innerHTML = '';
       }
@@ -267,8 +399,9 @@
             font-size: 14px;
             line-height: 1.5;
             box-shadow: ${isUser ? 'none' : '0 1px 2px rgba(0,0,0,0.1)'};
+            word-wrap: break-word;
           ">
-            ${content}
+            ${this.escapeHtml(content)}
           </div>
         </div>
       `;
@@ -276,7 +409,23 @@
       messagesContainer.insertAdjacentHTML('beforeend', messageHTML);
       messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
+      // Save message to array and localStorage
       this.messages.push({ role, content });
+      this.saveMessages();
+    },
+
+    saveMessages: function() {
+      try {
+        localStorage.setItem('agentforge_messages', JSON.stringify(this.messages));
+      } catch (e) {
+        console.error('Failed to save messages to localStorage', e);
+      }
+    },
+
+    escapeHtml: function(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     },
 
     addTypingIndicator: function() {
@@ -324,8 +473,13 @@
       }
     },
 
-    async sendMessage() {
+    sendMessage: async function() {
       const input = document.getElementById('agentforge-input');
+      if (!input) {
+        console.error('Input element not found');
+        return;
+      }
+
       const message = input.value.trim();
 
       if (!message) return;
@@ -333,6 +487,9 @@
       // Add user message to UI
       this.addMessage('user', message);
       input.value = '';
+
+      // Focus back to input
+      input.focus();
 
       // Show typing indicator
       this.addTypingIndicator();
@@ -357,7 +514,7 @@
         }
 
         // Save conversation ID
-        if (data.conversation_id && !this.conversationId) {
+        if (data.conversation_id) {
           this.conversationId = data.conversation_id;
           localStorage.setItem('agentforge_conversation_id', this.conversationId);
         }
