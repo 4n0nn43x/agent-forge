@@ -73,7 +73,17 @@ AgentForge transforms your documents and data into intelligent AI agents capable
 - **Quick deactivation**: Toggle on/off for compromised keys
 - **Permanent deletion**: Remove keys you no longer need
 
-#### 9. **Easy Deployment** 🐳
+#### 9. **Webhook Integrations** 🔗
+- **Event-driven automation**: Trigger external services on agent events
+- **5 supported events**: message.sent, conversation.started, conversation.ended, document.uploaded, agent.updated
+- **Secure payloads**: HMAC-SHA256 signature verification for webhook security
+- **Intelligent retry logic**: Automatic retries with exponential backoff (up to 10 attempts)
+- **Delivery tracking**: Complete logs of all webhook deliveries with success/failure status
+- **Test mode**: Send test payloads to verify your webhook endpoints
+- **Popular integrations**: Works with Slack, Discord, Zapier, Make, n8n, or any custom HTTP endpoint
+- **Flexible configuration**: Custom headers, retry counts, and event filtering per webhook
+
+#### 10. **Easy Deployment** 🐳
 - **Docker Compose**: Start with a single command
 - **Environment variables**: Centralized configuration via `.env`
 - **Health checks**: Built-in service health monitoring
@@ -287,11 +297,22 @@ POST /api/agents/{id}/chat           # Send message
 GET  /api/agents/{id}/conversations  # List conversations
 GET  /api/conversations/{id}/messages # Get conversation messages
 
-# API Keys (New!)
+# API Keys
 POST /api/agents/{id}/api-keys       # Generate API key
 GET  /api/agents/{id}/api-keys       # List API keys
 DELETE /api/agents/{id}/api-keys/{key_id}  # Delete API key
 PATCH /api/agents/{id}/api-keys/{key_id}/toggle  # Enable/disable key
+
+# Webhooks (New!)
+POST /api/agents/{id}/webhooks       # Create webhook
+GET  /api/agents/{id}/webhooks       # List webhooks
+GET  /api/agents/{id}/webhooks/{webhook_id}  # Get webhook details
+PUT  /api/agents/{id}/webhooks/{webhook_id}  # Update webhook
+DELETE /api/agents/{id}/webhooks/{webhook_id}  # Delete webhook
+PATCH /api/agents/{id}/webhooks/{webhook_id}/toggle  # Enable/disable webhook
+POST /api/agents/{id}/webhooks/{webhook_id}/test  # Test webhook
+GET  /api/agents/{id}/webhooks/{webhook_id}/logs  # View delivery logs
+GET  /api/agents/webhooks/events/supported  # List supported events
 ```
 
 ### 2. **Public API** (External Integrations) ✨ NEW!
@@ -464,6 +485,406 @@ DELETE /api/agents/{agent_id}/api-keys/{key_id}
 # Enable/disable an API key
 PATCH /api/agents/{agent_id}/api-keys/{key_id}/toggle
 ```
+
+---
+
+## 🔗 Webhook Integrations
+
+Connect your agents to external services and automate workflows with webhooks. Get real-time notifications when important events occur.
+
+### What are Webhooks?
+
+Webhooks allow AgentForge to send HTTP POST requests to external URLs when specific events happen. This enables you to:
+- Send Slack/Discord notifications when users ask questions
+- Create tickets in your support system automatically
+- Log conversations to external databases
+- Trigger workflows in Zapier, Make, or n8n
+- Update your CRM when leads are qualified
+- And much more!
+
+### Supported Events
+
+AgentForge triggers webhooks for these events:
+
+| Event | Description | Triggered When |
+|-------|-------------|----------------|
+| `message.sent` | User sends a message and gets a response | After agent responds to a message |
+| `conversation.started` | A new conversation begins | First message in a conversation |
+| `conversation.ended` | A conversation is closed | Conversation is marked as ended |
+| `document.uploaded` | A document is added to the knowledge base | Document is successfully processed |
+| `agent.updated` | Agent configuration changes | Agent settings are modified |
+
+### Creating a Webhook
+
+#### Via Dashboard (Recommended)
+
+1. Go to your agent's page
+2. Click the **"Webhooks"** tab
+3. Click **"New Webhook"**
+4. Configure your webhook:
+   - **Name**: Descriptive name (e.g., "Slack Notifications")
+   - **URL**: The endpoint to receive webhooks
+   - **Events**: Select which events to trigger on
+   - **Secret** (optional): For payload verification
+   - **Retry Count**: Number of retry attempts (0-10)
+
+#### Via API
+
+```bash
+curl -X POST "http://localhost:8000/api/agents/1/webhooks" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Slack Notifications",
+    "url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+    "events": ["message.sent", "conversation.started"],
+    "secret": "your-secret-key",
+    "retry_count": 3
+  }'
+```
+
+### Webhook Payload
+
+When an event occurs, AgentForge sends a POST request to your webhook URL with this structure:
+
+```json
+{
+  "event": "message.sent",
+  "timestamp": "2025-10-08T12:34:56.789Z",
+  "agent_id": 1,
+  "agent_name": "Support Bot",
+  "data": {
+    "conversation_id": "uuid-here",
+    "user_message": "What are your business hours?",
+    "assistant_response": "Our business hours are Monday to Friday, 9 AM to 5 PM EST.",
+    "tokens_used": 45,
+    "sources": [
+      {
+        "content": "Business hours: Mon-Fri 9-5 EST",
+        "source": "company_info.pdf"
+      }
+    ]
+  }
+}
+```
+
+### Verifying Webhook Signatures
+
+For security, AgentForge signs all webhook payloads with HMAC-SHA256. Here's how to verify them:
+
+**Python Example:**
+```python
+import hmac
+import hashlib
+
+def verify_webhook(payload, signature, secret):
+    """Verify webhook signature"""
+    expected = hmac.new(
+        secret.encode('utf-8'),
+        payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    return hmac.compare_digest(expected, signature)
+
+# Usage
+signature = request.headers.get('X-Webhook-Signature')
+is_valid = verify_webhook(request.body, signature, 'your-secret-key')
+```
+
+**Node.js Example:**
+```javascript
+const crypto = require('crypto');
+
+function verifyWebhook(payload, signature, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(signature)
+  );
+}
+
+// Usage (Express)
+app.post('/webhook', (req, res) => {
+  const signature = req.headers['x-webhook-signature'];
+  const isValid = verifyWebhook(
+    JSON.stringify(req.body),
+    signature,
+    'your-secret-key'
+  );
+
+  if (!isValid) {
+    return res.status(401).send('Invalid signature');
+  }
+
+  // Process webhook...
+});
+```
+
+### Integration Examples
+
+#### 1. Slack Notifications
+
+Send agent conversations to a Slack channel:
+
+```bash
+# Create a Slack incoming webhook: https://api.slack.com/messaging/webhooks
+# Then create an AgentForge webhook:
+
+curl -X POST "http://localhost:8000/api/agents/1/webhooks" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Slack - Customer Support",
+    "url": "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXX",
+    "events": ["message.sent"],
+    "retry_count": 3
+  }'
+```
+
+**Note**: Slack webhooks expect a specific format. You may need a middleware to transform the payload.
+
+#### 2. Discord Notifications
+
+```bash
+# Get Discord webhook URL from Server Settings → Integrations → Webhooks
+# Create AgentForge webhook:
+
+curl -X POST "http://localhost:8000/api/agents/1/webhooks" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Discord Alerts",
+    "url": "https://discord.com/api/webhooks/123456789/abcdefghijklmnop",
+    "events": ["message.sent", "conversation.started"],
+    "retry_count": 2
+  }'
+```
+
+#### 3. Zapier Integration
+
+Connect AgentForge to 5000+ apps via Zapier:
+
+1. Create a new Zap in Zapier
+2. Choose **"Webhooks by Zapier"** as the trigger
+3. Select **"Catch Hook"**
+4. Copy the webhook URL provided by Zapier
+5. Create a webhook in AgentForge with that URL
+6. Configure your Zap action (e.g., create Google Sheets row, send email, etc.)
+
+#### 4. Make (formerly Integromat)
+
+Similar to Zapier:
+
+1. Create a new scenario in Make
+2. Add a **"Webhooks"** module as the first step
+3. Choose **"Custom webhook"**
+4. Copy the webhook URL
+5. Create a webhook in AgentForge
+6. Build your automation workflow
+
+#### 5. Custom Node.js Endpoint
+
+```javascript
+const express = require('express');
+const app = express();
+
+app.post('/agentforge-webhook', express.json(), (req, res) => {
+  const { event, data, agent_name } = req.body;
+
+  console.log(`[${agent_name}] Event: ${event}`);
+
+  if (event === 'message.sent') {
+    // Log to database
+    db.conversations.insert({
+      conversation_id: data.conversation_id,
+      user_message: data.user_message,
+      bot_response: data.assistant_response,
+      timestamp: new Date()
+    });
+
+    // Send notification
+    if (data.user_message.toLowerCase().includes('urgent')) {
+      sendSMSAlert(data.user_message);
+    }
+  }
+
+  res.status(200).json({ received: true });
+});
+
+app.listen(3000);
+```
+
+#### 6. Python Flask Endpoint
+
+```python
+from flask import Flask, request, jsonify
+import hmac
+import hashlib
+
+app = Flask(__name__)
+WEBHOOK_SECRET = 'your-secret-key'
+
+@app.route('/webhook', methods=['POST'])
+def handle_webhook():
+    # Verify signature
+    signature = request.headers.get('X-Webhook-Signature')
+    payload = request.get_data(as_text=True)
+
+    expected = hmac.new(
+        WEBHOOK_SECRET.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    if not hmac.compare_digest(expected, signature):
+        return jsonify({'error': 'Invalid signature'}), 401
+
+    # Process webhook
+    data = request.json
+    event = data['event']
+
+    if event == 'message.sent':
+        # Store in database
+        save_conversation(data['data'])
+
+        # Send to analytics
+        track_user_engagement(data['data'])
+
+    return jsonify({'status': 'success'}), 200
+
+if __name__ == '__main__':
+    app.run(port=5000)
+```
+
+### Webhook Delivery & Retry Logic
+
+**Delivery Behavior:**
+- Webhooks are sent asynchronously (won't slow down chat responses)
+- 5-second timeout per request
+- Automatic retries with exponential backoff
+
+**Retry Schedule:**
+- Attempt 1: Immediate
+- Attempt 2: After 1 second
+- Attempt 3: After 2 seconds
+- Attempt 4: After 4 seconds
+- Attempt 5: After 8 seconds
+- And so on (2^attempt seconds)
+
+**Success Criteria:**
+- HTTP status code 2xx (200-299)
+
+**Failure Handling:**
+- Non-2xx responses trigger retries
+- After all retries fail, the delivery is marked as failed
+- All attempts are logged for debugging
+
+### Monitoring Webhook Deliveries
+
+**Via Dashboard:**
+1. Go to agent → Webhooks tab
+2. Click the "eye" icon next to a webhook
+3. View recent deliveries with:
+   - Event type
+   - Timestamp
+   - Status code
+   - Success/failure status
+   - Error messages (if any)
+
+**Via API:**
+```bash
+# Get delivery logs for a webhook
+curl -X GET "http://localhost:8000/api/agents/1/webhooks/123/logs" \
+  -H "Content-Type: application/json"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "webhook_id": 123,
+    "event_type": "message.sent",
+    "status_code": 200,
+    "success": true,
+    "error_message": null,
+    "created_at": "2025-10-08T12:34:56Z"
+  },
+  {
+    "id": 2,
+    "webhook_id": 123,
+    "event_type": "message.sent",
+    "status_code": 500,
+    "success": false,
+    "error_message": "Internal Server Error",
+    "created_at": "2025-10-08T12:35:12Z"
+  }
+]
+```
+
+### Testing Webhooks
+
+Before going live, test your webhook endpoint:
+
+**Via Dashboard:**
+1. Go to Webhooks tab
+2. Click the "play" icon next to your webhook
+3. A test payload will be sent immediately
+
+**Via API:**
+```bash
+curl -X POST "http://localhost:8000/api/agents/1/webhooks/123/test" \
+  -H "Content-Type: application/json"
+```
+
+**Test Payload:**
+```json
+{
+  "event": "test.webhook",
+  "timestamp": "2025-10-08T12:34:56.789Z",
+  "agent_id": 1,
+  "agent_name": "Your Agent Name",
+  "data": {
+    "test": true,
+    "message": "This is a test webhook from AgentForge"
+  }
+}
+```
+
+### Best Practices
+
+1. **Use HTTPS**: Always use HTTPS URLs for production webhooks
+2. **Verify Signatures**: Always verify the `X-Webhook-Signature` header
+3. **Respond Quickly**: Return 200 OK as fast as possible (process data async)
+4. **Handle Duplicates**: Same event may be sent multiple times (use idempotent handlers)
+5. **Set Retry Count**: Start with 3 retries for production
+6. **Monitor Failures**: Check webhook logs regularly
+7. **Use Secrets**: Always set a secret for payload verification
+8. **Test First**: Use the test feature before enabling webhooks
+
+### Troubleshooting
+
+**Webhook not firing?**
+- Check that the webhook is enabled (active)
+- Verify the event type matches what you selected
+- Check webhook logs for error messages
+
+**Getting authentication errors?**
+- Ensure your endpoint is publicly accessible
+- Check CORS settings if applicable
+- Verify your server accepts POST requests
+
+**Signature verification failing?**
+- Make sure you're using the exact secret from the webhook
+- Verify you're computing HMAC-SHA256 correctly
+- Check that you're hashing the raw request body
+
+**Deliveries failing?**
+- Check your endpoint returns 2xx status codes
+- Increase timeout if your server is slow
+- Review webhook logs for specific error messages
 
 ---
 

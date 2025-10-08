@@ -22,6 +22,7 @@ from ..models import (
 from ..agents.agent_manager import AgentManager
 from ..utils.vector_store import VectorStore
 from ..agents.rag_engine import RAGEngine
+from ..utils.webhook_service import WebhookService
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,23 @@ async def public_chat(
             conversation_id=message_data.conversation_id,
             source="widget",
         )
+
+        # Trigger webhooks for message.sent event
+        try:
+            webhook_payload = {
+                "conversation_id": result["conversation_id"],
+                "user_message": message_data.message,
+                "assistant_response": result["response"],
+                "tokens_used": result.get("tokens_used"),
+                "sources": result.get("sources"),
+                "source": "widget",  # Indicate this came from widget/public API
+            }
+            await WebhookService.trigger_webhooks(
+                db, agent.id, "message.sent", webhook_payload
+            )
+        except Exception as webhook_error:
+            # Don't fail the request if webhook delivery fails
+            logger.error(f"Error triggering webhooks: {webhook_error}")
 
         return ChatResponse(
             response=result["response"],

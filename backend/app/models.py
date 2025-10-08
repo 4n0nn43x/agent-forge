@@ -3,7 +3,7 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from .database import Base
 
@@ -98,6 +98,44 @@ class APIKey(Base):
 
     # Relationships
     agent = relationship("Agent")
+
+
+class Webhook(Base):
+    """Webhooks for agent events"""
+    __tablename__ = "webhooks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
+    name = Column(String(255), nullable=False)  # Human-readable name
+    url = Column(String(512), nullable=False)  # Webhook URL
+    events = Column(Text, nullable=False)  # Comma-separated events (message.sent, conversation.started, etc.)
+    secret = Column(String(64), nullable=True)  # Secret for signature validation
+    is_active = Column(Integer, default=1)  # 1 for active, 0 for disabled
+    headers = Column(Text, nullable=True)  # JSON string of custom headers
+    retry_count = Column(Integer, default=3)  # Number of retries on failure
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_triggered_at = Column(DateTime, nullable=True)
+
+    # Relationships
+    agent = relationship("Agent")
+
+
+class WebhookLog(Base):
+    """Log of webhook deliveries"""
+    __tablename__ = "webhook_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    webhook_id = Column(Integer, ForeignKey("webhooks.id"), nullable=False)
+    event_type = Column(String(50), nullable=False)  # message.sent, conversation.started, etc.
+    payload = Column(Text, nullable=False)  # JSON payload sent
+    status_code = Column(Integer, nullable=True)  # HTTP response code
+    response_body = Column(Text, nullable=True)  # Response from webhook
+    success = Column(Integer, default=0)  # 1 for success, 0 for failure
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    webhook = relationship("Webhook")
 
 
 # Pydantic Schemas (for API requests/responses)
@@ -220,6 +258,57 @@ class APIKeyResponse(BaseModel):
     allowed_origins: Optional[str]
     created_at: datetime
     last_used_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class WebhookCreate(BaseModel):
+    """Schema for creating a webhook"""
+    name: str = Field(..., min_length=1, max_length=255)
+    url: str = Field(..., min_length=1, max_length=512)
+    events: List[str] = Field(..., description="List of events to trigger on")
+    secret: Optional[str] = None
+    headers: Optional[Dict[str, str]] = None
+    retry_count: int = Field(default=3, ge=0, le=10)
+
+
+class WebhookUpdate(BaseModel):
+    """Schema for updating a webhook"""
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    url: Optional[str] = Field(None, min_length=1, max_length=512)
+    events: Optional[List[str]] = None
+    secret: Optional[str] = None
+    headers: Optional[Dict[str, str]] = None
+    retry_count: Optional[int] = Field(None, ge=0, le=10)
+    is_active: Optional[bool] = None
+
+
+class WebhookResponse(BaseModel):
+    """Schema for webhook response"""
+    id: int
+    agent_id: int
+    name: str
+    url: str
+    events: List[str]
+    is_active: bool
+    retry_count: int
+    created_at: datetime
+    last_triggered_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class WebhookLogResponse(BaseModel):
+    """Schema for webhook log response"""
+    id: int
+    webhook_id: int
+    event_type: str
+    status_code: Optional[int]
+    success: bool
+    error_message: Optional[str]
+    created_at: datetime
 
     class Config:
         from_attributes = True

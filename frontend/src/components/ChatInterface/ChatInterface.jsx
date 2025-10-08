@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, RotateCcw, FileText, Upload, MessageSquare, Key, Code2 } from 'lucide-react';
+import { ArrowLeft, Send, RotateCcw, FileText, Upload, MessageSquare, Key, Code2, Webhook } from 'lucide-react';
 import useAgentStore from '../../store/agentStore';
 import * as api from '../../services/api';
 import LoadingSpinner from '../Common/LoadingSpinner';
@@ -10,6 +10,7 @@ import DocumentPanel from './DocumentPanel';
 import ConversationList from './ConversationList';
 import APIKeyManager from './APIKeyManager';
 import WidgetCode from './WidgetCode';
+import WebhookManager from './WebhookManager';
 
 const ChatInterface = () => {
   const { agentId } = useParams();
@@ -21,7 +22,7 @@ const ChatInterface = () => {
   const [conversationId, setConversationId] = useState(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('chat'); // chat, docs, api-keys, widget
+  const [activeTab, setActiveTab] = useState('chat'); // chat, docs, api-keys, webhooks, widget
   const [showConversations, setShowConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [conversationListKey, setConversationListKey] = useState(0);
@@ -219,6 +220,17 @@ const ChatInterface = () => {
             <span>API Keys</span>
           </button>
           <button
+            onClick={() => setActiveTab('webhooks')}
+            className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
+              activeTab === 'webhooks'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+            }`}
+          >
+            <Webhook className="w-4 h-4" />
+            <span>Webhooks</span>
+          </button>
+          <button
             onClick={() => setActiveTab('widget')}
             className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
               activeTab === 'widget'
@@ -337,6 +349,13 @@ const ChatInterface = () => {
           {activeTab === 'api-keys' && (
             <div className="flex-1 overflow-y-auto min-h-0 p-4">
               <APIKeyManager agentId={parseInt(agentId)} />
+            </div>
+          )}
+
+          {/* Webhooks Tab */}
+          {activeTab === 'webhooks' && (
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+              <WebhookManager agentId={parseInt(agentId)} />
             </div>
           )}
 

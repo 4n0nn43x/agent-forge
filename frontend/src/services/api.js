@@ -75,6 +75,27 @@ export const deleteAPIKey = (agentId, keyId) =>
 export const toggleAPIKey = (agentId, keyId) =>
   api.patch(`/api/agents/${agentId}/api-keys/${keyId}/toggle`);
 
+// Webhooks
+export const getWebhooks = (agentId) => api.get(`/api/agents/${agentId}/webhooks`);
+
+export const createWebhook = (agentId, webhookData) =>
+  api.post(`/api/agents/${agentId}/webhooks`, webhookData);
+
+export const updateWebhook = (agentId, webhookId, webhookData) =>
+  api.put(`/api/agents/${agentId}/webhooks/${webhookId}`, webhookData);
+
+export const deleteWebhook = (agentId, webhookId) =>
+  api.delete(`/api/agents/${agentId}/webhooks/${webhookId}`);
+
+export const toggleWebhook = (agentId, webhookId) =>
+  api.patch(`/api/agents/${agentId}/webhooks/${webhookId}/toggle`);
+
+export const testWebhook = (agentId, webhookId) =>
+  api.post(`/api/agents/${agentId}/webhooks/${webhookId}/test`);
+
+export const getWebhookLogs = (agentId, webhookId) =>
+  api.get(`/api/agents/${agentId}/webhooks/${webhookId}/logs`);
+
 // Health check
 export const healthCheck = () => api.get('/health');
 
