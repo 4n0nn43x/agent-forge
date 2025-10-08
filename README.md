@@ -8,21 +8,100 @@ Built for the [NodeOps Proof of Build Hackathon](https://nodeops.xyz) (October 2
 
 ## 📖 Overview
 
-AgentForge is a production-ready platform that enables anyone to create custom AI agents without writing a single line of code. Upload your documents, configure your agent's personality, and deploy a fully functional chatbot powered by RAG (Retrieval-Augmented Generation).
+**AgentForge** is a comprehensive, modern platform that empowers anyone to create, deploy, and integrate custom conversational AI agents without writing a single line of code. Whether you're a business looking to automate customer support, a developer wanting to integrate AI into your application, or a team building an internal knowledge assistant, AgentForge has you covered.
 
-### ✨ Key Features
+### 🎯 What is AgentForge?
 
-- **🎨 No-Code Interface**: Intuitive 3-step wizard to create agents
-- **📚 RAG-Powered**: Upload documents (PDF, TXT, MD, DOCX) to form your agent's knowledge base
-- **🎭 Pre-built Templates**: Ready-to-use templates for common use cases
-- **🔌 Multi-LLM Support**: Works with OpenAI (GPT-4) and Anthropic (Claude)
-- **💬 Beautiful Chat Interface**: Real-time conversations with source citations
-- **🔑 Public REST API**: Integrate agents into any application via API keys ✨ NEW!
-- **🎨 Embeddable Widget**: Drop-in chat widget for websites (2 lines of code) ✨ NEW!
-- **📊 Conversation History**: Full message tracking and retrieval
-- **🔒 Secure Authentication**: API key-based auth with rate limiting
-- **🐳 Docker-Ready**: One-command deployment
-- **🌐 DePin Infrastructure**: Designed for NodeOps deployment
+AgentForge transforms your documents and data into intelligent AI agents capable of answering questions, providing support, and conversing naturally with your users. The platform uses **RAG (Retrieval-Augmented Generation)** to ensure your agents provide accurate responses based on your specific content, not just general knowledge.
+
+### 🔑 Core Features
+
+#### 1. **Intuitive No-Code Interface** 🎨
+- **3-step creation wizard**: Choose a template, configure your agent, upload documents
+- **Centralized dashboard**: Manage all your agents from a modern interface
+- **Ready-to-use templates**: Customer support, technical documentation, lead qualification, general assistant
+- **Advanced configuration**: Customize system prompts, temperature, tokens, and guardrails
+
+#### 2. **Powerful RAG System** 📚
+- **Document upload**: Support for PDF, TXT, MD, DOCX files
+- **Automatic processing**: Your documents are automatically chunked, indexed, and vectorized
+- **Semantic search**: ChromaDB for fast and relevant retrieval
+- **Source citations**: Every response includes the sources used for transparency
+- **Dynamic knowledge base**: Add or remove documents at any time
+
+#### 3. **Multi-LLM Support** 🔌
+- **OpenAI**: GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
+- **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus
+- **Flexible configuration**: Choose the model suited for your use case and budget
+- **Behavior customization**: Adjust temperature, max_tokens, and personality
+
+#### 4. **Modern Chat Interface** 💬
+- **Real-time chat**: Responsive and fluid interface
+- **Conversation history**: All conversations are saved and searchable
+- **Cited sources**: See which documents were used for each response
+- **Multi-conversations**: Create and manage multiple conversations per agent
+- **Smart filtering**: Separates platform conversations from widget/API conversations
+
+#### 5. **Public REST API** 🔑
+- **API Key authentication**: Secured with Bearer tokens
+- **Rate limiting**: Control usage with configurable limits
+- **Key management**: Create, activate, deactivate, and delete API keys
+- **Allowed origins**: Configure CORS to restrict access to specific domains
+- **Usage tracking**: Monitor the last usage of each key
+- **OpenAPI documentation**: Interactive API docs at `/docs`
+
+#### 6. **Embeddable Widget** 🎨
+- **2-line integration**: Add a chatbot to any website
+- **100% customizable**: Colors, position, texts, avatar
+- **Responsive**: Works on mobile and desktop
+- **Persistent conversations**: History saved across page reloads
+- **Welcome message**: Greet your visitors with a custom message
+- **Zero dependencies**: Pure vanilla JavaScript
+- **Secure**: API key authentication with CORS support
+
+#### 7. **History & Traceability** 📊
+- **Automatic saving**: All conversations are recorded
+- **Source separation**: Widget conversations don't clutter your platform interface
+- **Timestamped messages**: Precise timestamp for each message
+- **Token counting**: Track your usage and costs
+- **Easy retrieval**: API to list and retrieve conversations
+
+#### 8. **Security & Control** 🔒
+- **Secure API Keys**: `af_` prefix with 32-character random token
+- **Configured CORS**: Protection against unauthorized access
+- **Rate limiting**: Abuse prevention with per-hour limits
+- **Quick deactivation**: Toggle on/off for compromised keys
+- **Permanent deletion**: Remove keys you no longer need
+
+#### 9. **Easy Deployment** 🐳
+- **Docker Compose**: Start with a single command
+- **Environment variables**: Centralized configuration via `.env`
+- **Health checks**: Built-in service health monitoring
+- **Persistent volumes**: Your data survives restarts
+- **Structured logs**: Simplified debugging and monitoring
+- **Production-ready**: Designed for NodeOps deployment
+
+### 💡 Use Cases
+
+AgentForge is perfect for:
+
+- ✅ **24/7 Customer Support**: Instantly answer frequently asked questions with your FAQs
+- ✅ **Documentation Assistant**: Help developers navigate your technical documentation
+- ✅ **Lead Qualification**: Engage and qualify visitors before routing them to sales
+- ✅ **Internal Knowledge Base**: AI assistant for your team with access to all internal documents
+- ✅ **E-commerce Assistant**: Help customers find products and answer their questions
+- ✅ **Educational Tutor**: Create specialized learning assistants by subject
+- ✅ **Automated Onboarding**: Guide new users with an interactive assistant
+- ✅ **HR Assistant**: Answer employee questions about policies and benefits
+
+### 🏆 Why Choose AgentForge?
+
+- **Speed**: From idea to working agent in 5 minutes
+- **Flexibility**: Use as web platform, REST API, or embedded widget
+- **Scalability**: Docker architecture ready for production
+- **Transparency**: Open-source code, no vendor lock-in
+- **Cost-effective**: Use your own LLM API keys, control your costs
+- **Modern**: Latest tech stack (React 18, FastAPI, LangChain)
 
 ---
 
@@ -37,8 +116,8 @@ AgentForge is a production-ready platform that enables anyone to create custom A
 
 1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
-cd agentforge
+git clone https://github.com/4n0nn43x/agent-forge
+cd agent-forge
 ```
 
 2. **Set up environment variables**
@@ -59,33 +138,6 @@ docker-compose up -d
 - API Docs: http://localhost:8000/docs
 
 That's it! 🎉
-
----
-
-## 🎯 Why AgentForge over n8n?
-
-| Feature | n8n | AgentForge |
-|---------|-----|------------|
-| **Learning Curve** | Technical, requires workflow knowledge | Non-technical friendly, 3-step wizard |
-| **AI Agent Focus** | Generic automation nodes | 100% optimized for conversational AI |
-| **RAG Setup** | Manual configuration required | Built-in, automatic document processing |
-| **Time to First Agent** | 2-3 hours | 5 minutes |
-| **Templates** | General automation | AI-specific: support, docs, sales, etc. |
-| **Conversational Memory** | Manual setup | Automatic context management |
-| **Web3 Native** | No | Yes (designed for DePin) |
-
-### Use AgentForge when you need:
-- ✅ Customer support chatbot with your documentation
-- ✅ Internal knowledge base assistant
-- ✅ Lead qualification bot
-- ✅ Technical documentation helper
-- ✅ Quick AI agent prototypes
-
-### Use n8n when you need:
-- ✅ Complex multi-step workflows
-- ✅ Integration with 300+ services
-- ✅ Scheduled tasks and automation
-- ✅ Data transformation pipelines
 
 ---
 
@@ -761,50 +813,11 @@ MIT License - See LICENSE file for details
 
 ---
 
-## 🙏 Acknowledgments
-
-- Built for [NodeOps Proof of Build Hackathon](https://nodeops.xyz)
-- Powered by [LangChain](https://langchain.com)
-- UI components inspired by [shadcn/ui](https://ui.shadcn.com)
-
----
-
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/agentforge/issues)
+- **Issues**: [GitHub Issues](https://github.com/4n0nn43x/agent-forge/issues)
 - **Documentation**: [Full Docs](./docs/)
 - **Demo Video**: [Watch on YouTube](#)
-
----
-
-## 🎯 Roadmap
-
-### ✅ Completed
-
-- [x] **Public REST API** - External integrations via API keys
-- [x] **Embeddable Widget** - Chat widget for any website
-- [x] **API Key Management** - Generate, manage, and secure API keys
-- [x] **Conversation History** - Full conversation tracking
-- [x] **Multi-LLM Support** - OpenAI & Anthropic models
-
-### 🚧 In Progress
-
-- [ ] **API Key Management UI** - Dashboard interface for keys
-- [ ] **Rate Limiting** - Advanced rate limiting per API key
-- [ ] **Usage Analytics** - Track widget usage and metrics
-
-### 📋 Planned Enhancements
-
-- [ ] Website crawling for knowledge base
-- [ ] Multi-modal support (images in chat)
-- [ ] Advanced analytics dashboard
-- [ ] Agent marketplace & sharing
-- [ ] Webhook integrations
-- [ ] Multi-language support
-- [ ] Voice chat capabilities
-- [ ] Slack/Discord integrations
-- [ ] Custom branding options
-- [ ] A/B testing for prompts
 
 ---
 
