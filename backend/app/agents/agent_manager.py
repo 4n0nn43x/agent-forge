@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
+from langchain_ollama import ChatOllama
 
 from ..models import Agent, Document, Conversation, Message
 from ..utils.vector_store import VectorStore
@@ -36,6 +37,12 @@ class AgentManager:
         """
         Get LangChain LLM instance based on agent configuration
 
+        Supports:
+        - OpenAI models (GPT, O1)
+        - Anthropic models (Claude)
+        - Ollama local models (Llama, Mistral, etc.)
+        - OpenAI-compatible endpoints (LM Studio, LocalAI)
+
         Args:
             agent: Agent database model
 
@@ -44,18 +51,61 @@ class AgentManager:
         """
         model_name = agent.llm_model.lower()
 
-        # OpenAI models
-        if "gpt" in model_name or model_name.startswith("o1"):
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY not set")
+        # Ollama models (local/free)
+        # Common Ollama models: llama2, llama3, mistral, codellama, phi, gemma, etc.
+        ollama_keywords = ["llama", "mistral", "codellama", "phi", "gemma", "vicuna", "orca", "neural-chat"]
+        if any(keyword in model_name for keyword in ollama_keywords):
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            logger.info(f"Using Ollama model: {agent.llm_model} at {base_url}")
 
-            return ChatOpenAI(
+            return ChatOllama(
                 model=agent.llm_model,
+                base_url=base_url,
                 temperature=agent.temperature,
-                max_tokens=agent.max_tokens,
-                api_key=api_key,
+                # Note: Ollama handles max_tokens differently
+                num_predict=agent.max_tokens if agent.max_tokens else None,
             )
+
+        # OpenAI models
+        elif "gpt" in model_name or model_name.startswith("o1"):
+            # Check for custom OpenAI-compatible endpoints (LM Studio, LocalAI)
+            lmstudio_base = os.getenv("LMSTUDIO_BASE_URL")
+            localai_base = os.getenv("LOCALAI_BASE_URL")
+
+            # LM Studio (OpenAI-compatible)
+            if lmstudio_base and "lmstudio" in model_name:
+                logger.info(f"Using LM Studio at {lmstudio_base}")
+                return ChatOpenAI(
+                    model=agent.llm_model,
+                    temperature=agent.temperature,
+                    max_tokens=agent.max_tokens,
+                    base_url=lmstudio_base,
+                    api_key="lm-studio",  # LM Studio doesn't require real API key
+                )
+
+            # LocalAI (OpenAI-compatible)
+            elif localai_base and "localai" in model_name:
+                logger.info(f"Using LocalAI at {localai_base}")
+                return ChatOpenAI(
+                    model=agent.llm_model,
+                    temperature=agent.temperature,
+                    max_tokens=agent.max_tokens,
+                    base_url=localai_base,
+                    api_key="not-needed",  # LocalAI doesn't require API key
+                )
+
+            # Standard OpenAI
+            else:
+                api_key = os.getenv("OPENAI_API_KEY")
+                if not api_key:
+                    raise ValueError("OPENAI_API_KEY not set")
+
+                return ChatOpenAI(
+                    model=agent.llm_model,
+                    temperature=agent.temperature,
+                    max_tokens=agent.max_tokens,
+                    api_key=api_key,
+                )
 
         # Anthropic models
         elif "claude" in model_name or "sonnet" in model_name or "opus" in model_name:
@@ -71,7 +121,21 @@ class AgentManager:
             )
 
         else:
-            raise ValueError(f"Unsupported model: {agent.llm_model}")
+            # Try Ollama as fallback for unknown models
+            ollama_base = os.getenv("OLLAMA_BASE_URL")
+            if ollama_base:
+                logger.warning(f"Unknown model '{agent.llm_model}', attempting to use with Ollama")
+                return ChatOllama(
+                    model=agent.llm_model,
+                    base_url=ollama_base,
+                    temperature=agent.temperature,
+                    num_predict=agent.max_tokens if agent.max_tokens else None,
+                )
+
+            raise ValueError(
+                f"Unsupported model: {agent.llm_model}. "
+                f"Supported providers: OpenAI, Anthropic, Ollama, LM Studio, LocalAI"
+            )
 
     async def add_document(
         self,

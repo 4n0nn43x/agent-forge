@@ -33,19 +33,36 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
 
-    # Verify at least one LLM API key is set
+    # Verify at least one LLM provider is configured
     has_openai = bool(os.getenv("OPENAI_API_KEY"))
     has_anthropic = bool(os.getenv("ANTHROPIC_API_KEY"))
+    has_ollama = bool(os.getenv("OLLAMA_BASE_URL"))
+    has_lmstudio = bool(os.getenv("LMSTUDIO_BASE_URL"))
+    has_localai = bool(os.getenv("LOCALAI_BASE_URL"))
 
-    if not has_openai and not has_anthropic:
+    llm_providers = []
+    if has_openai:
+        llm_providers.append("OpenAI")
+    if has_anthropic:
+        llm_providers.append("Anthropic")
+    if has_ollama:
+        llm_providers.append("Ollama")
+    if has_lmstudio:
+        llm_providers.append("LM Studio")
+    if has_localai:
+        llm_providers.append("LocalAI")
+
+    if not llm_providers:
         logger.warning(
-            "⚠️  No LLM API keys found! Please set OPENAI_API_KEY or ANTHROPIC_API_KEY"
+            "⚠️  No LLM providers configured! Please set at least one:\n"
+            "   - OPENAI_API_KEY for OpenAI models\n"
+            "   - ANTHROPIC_API_KEY for Anthropic models\n"
+            "   - OLLAMA_BASE_URL for Ollama (local/free models)\n"
+            "   - LMSTUDIO_BASE_URL for LM Studio\n"
+            "   - LOCALAI_BASE_URL for LocalAI"
         )
     else:
-        if has_openai:
-            logger.info("✓ OpenAI API key configured")
-        if has_anthropic:
-            logger.info("✓ Anthropic API key configured")
+        logger.info(f"✓ LLM Providers configured: {', '.join(llm_providers)}")
 
     logger.info("AgentForge is ready! 🚀")
 
