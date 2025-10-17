@@ -30,15 +30,9 @@ AgentForge transforms your documents and data into intelligent AI agents capable
 - **Dynamic knowledge base**: Add or remove documents at any time
 
 #### 3. **Multi-LLM Support** 🔌
-- **Cloud Providers**:
-  - **OpenAI**: GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
-  - **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus
-- **Local/Free Models** 🆕:
-  - **Ollama**: Llama 3, Mistral, CodeLlama, Phi, Gemma, and more
-  - **LM Studio**: OpenAI-compatible local models
-  - **LocalAI**: Self-hosted AI models
+- **OpenAI**: GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
+- **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus
 - **Flexible configuration**: Choose the model suited for your use case and budget
-- **Cost-effective**: Use free local models with Ollama (no API keys required!)
 - **Behavior customization**: Adjust temperature, max_tokens, and personality
 
 #### 4. **Modern Chat Interface** 💬
@@ -126,9 +120,9 @@ AgentForge is perfect for:
 ### Prerequisites
 
 - Docker and Docker Compose
-- At least one LLM provider:
-  - **Cloud**: OpenAI or Anthropic API key, OR
-  - **Local/Free**: Ollama installed ([ollama.com](https://ollama.com))
+- At least one LLM API key:
+  - OpenAI API key (for GPT models)
+  - Anthropic API key (for Claude models)
 
 ### Installation
 
@@ -252,14 +246,9 @@ That's it! 🎉
 See `.env.example` for all available options. Key variables:
 
 ```bash
-# Cloud LLM Providers (at least one required if not using local models)
+# LLM Providers (at least one required)
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
-
-# Local/Free LLM Providers (NEW!)
-OLLAMA_BASE_URL=http://localhost:11434  # Ollama server URL
-LMSTUDIO_BASE_URL=http://localhost:1234/v1  # LM Studio (optional)
-LOCALAI_BASE_URL=http://localhost:8080  # LocalAI (optional)
 
 # Optional
 ENV=production
@@ -270,8 +259,6 @@ EMBEDDING_MODEL=sentence-transformers
 
 ### Supported LLM Models
 
-#### Cloud Providers
-
 **OpenAI:**
 - gpt-4
 - gpt-4-turbo
@@ -280,24 +267,6 @@ EMBEDDING_MODEL=sentence-transformers
 **Anthropic:**
 - claude-3-5-sonnet-20241022
 - claude-3-opus-20240229
-
-#### Local/Free Models 🆕
-
-**Ollama** (Recommended for local/free AI):
-- llama3, llama3.1, llama3.2
-- mistral, mixtral
-- codellama
-- phi, phi3
-- gemma, gemma2
-- vicuna, orca-mini
-- neural-chat
-- And 100+ more models!
-
-**LM Studio** (OpenAI-compatible):
-- Any model from LM Studio library
-
-**LocalAI** (Self-hosted):
-- Compatible with various open-source models
 
 ---
 
