@@ -80,32 +80,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS
-# In development, allow common localhost origins. In production, use CORS_ORIGINS env var
-env = os.getenv("ENV", "development")
-if env == "development":
-    # Allow all common localhost ports for development
-    cors_origins = [
-        "http://localhost:3000",
-        "http://localhost:5000",
-        "http://localhost:5173",
-        "http://localhost:8000",
-        "http://localhost:8080",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:8080",
-    ]
-else:
-    cors_origins = os.getenv("CORS_ORIGINS", "").split(",")
-
+# Configure CORS - Allow all origins for deployment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+    allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,
 )
