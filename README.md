@@ -1239,7 +1239,6 @@ MIT License - See LICENSE file for details
 ## 📞 Support
 
 - **Issues**: [GitHub Issues](https://github.com/4n0nn43x/agent-forge/issues)
-- **Documentation**: [Full Docs](./docs/)
 - **Demo Video**: [Watch on YouTube](#)
 
 ---
