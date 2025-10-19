@@ -70,36 +70,36 @@ export const getConversationMessages = (conversationId) =>
 
 // API Keys
 export const createAPIKey = (agentId, keyData) =>
-  api.post(`/api/agents/${agentId}/api-keys`, keyData);
+  api.post(`/api/agents/${agentId}/api-keys/`, keyData);
 
-export const getAPIKeys = (agentId) => api.get(`/api/agents/${agentId}/api-keys`);
+export const getAPIKeys = (agentId) => api.get(`/api/agents/${agentId}/api-keys/`);
 
 export const deleteAPIKey = (agentId, keyId) =>
-  api.delete(`/api/agents/${agentId}/api-keys/${keyId}`);
+  api.delete(`/api/agents/${agentId}/api-keys/${keyId}/`);
 
 export const toggleAPIKey = (agentId, keyId) =>
-  api.patch(`/api/agents/${agentId}/api-keys/${keyId}/toggle`);
+  api.patch(`/api/agents/${agentId}/api-keys/${keyId}/toggle/`);
 
 // Webhooks
-export const getWebhooks = (agentId) => api.get(`/api/agents/${agentId}/webhooks`);
+export const getWebhooks = (agentId) => api.get(`/api/agents/${agentId}/webhooks/`);
 
 export const createWebhook = (agentId, webhookData) =>
-  api.post(`/api/agents/${agentId}/webhooks`, webhookData);
+  api.post(`/api/agents/${agentId}/webhooks/`, webhookData);
 
 export const updateWebhook = (agentId, webhookId, webhookData) =>
-  api.put(`/api/agents/${agentId}/webhooks/${webhookId}`, webhookData);
+  api.put(`/api/agents/${agentId}/webhooks/${webhookId}/`, webhookData);
 
 export const deleteWebhook = (agentId, webhookId) =>
-  api.delete(`/api/agents/${agentId}/webhooks/${webhookId}`);
+  api.delete(`/api/agents/${agentId}/webhooks/${webhookId}/`);
 
 export const toggleWebhook = (agentId, webhookId) =>
-  api.patch(`/api/agents/${agentId}/webhooks/${webhookId}/toggle`);
+  api.patch(`/api/agents/${agentId}/webhooks/${webhookId}/toggle/`);
 
 export const testWebhook = (agentId, webhookId) =>
-  api.post(`/api/agents/${agentId}/webhooks/${webhookId}/test`);
+  api.post(`/api/agents/${agentId}/webhooks/${webhookId}/test/`);
 
 export const getWebhookLogs = (agentId, webhookId) =>
-  api.get(`/api/agents/${agentId}/webhooks/${webhookId}/logs`);
+  api.get(`/api/agents/${agentId}/webhooks/${webhookId}/logs/`);
 
 // Health check
 export const healthCheck = () => api.get('/health');
