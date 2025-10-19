@@ -3,9 +3,8 @@
 import os
 import logging
 from typing import List, Dict, Any, Optional
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import Document
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
 from chromadb.api.types import EmbeddingFunction, Documents
 
@@ -26,37 +25,26 @@ class LangChainEmbeddingAdapter(EmbeddingFunction):
 class RAGEngine:
     """RAG engine for retrieval-augmented generation"""
 
-    def __init__(self, embedding_model: str = "sentence-transformers"):
+    def __init__(self, embedding_model: str = "openai"):
         """
         Initialize RAG engine
 
         Args:
-            embedding_model: Type of embedding model ('sentence-transformers' or 'openai')
+            embedding_model: Type of embedding model (currently 'openai' only)
         """
         self.embedding_model_type = embedding_model
         self.embedding_function = self._initialize_embeddings()
 
     def _initialize_embeddings(self):
         """Initialize embedding function based on configuration"""
-        if self.embedding_model_type == "openai":
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY not set but OpenAI embeddings requested")
+        # Use OpenAI embeddings (lightweight, no PyTorch dependencies)
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY not set. OpenAI embeddings are required.")
 
-            logger.info("Using OpenAI embeddings")
-            langchain_emb = OpenAIEmbeddings(api_key=api_key)
-            return LangChainEmbeddingAdapter(langchain_emb)
-
-        else:  # sentence-transformers (default)
-            model_name = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
-            logger.info(f"Using HuggingFace embeddings: {model_name}")
-
-            langchain_emb = HuggingFaceEmbeddings(
-                model_name=model_name,
-                model_kwargs={"device": "cpu"},
-                encode_kwargs={"normalize_embeddings": True},
-            )
-            return LangChainEmbeddingAdapter(langchain_emb)
+        logger.info("Using OpenAI embeddings (text-embedding-ada-002)")
+        langchain_emb = OpenAIEmbeddings(api_key=api_key)
+        return LangChainEmbeddingAdapter(langchain_emb)
 
     def get_embedding_function(self):
         """Get the embedding function for use with vector store"""

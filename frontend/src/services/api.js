@@ -1,9 +1,14 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// In production (Docker), VITE_API_URL will be undefined/empty
+// This makes axios use relative paths (e.g., /api/agents/)
+// which nginx will proxy to the backend
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  // Only set baseURL if VITE_API_URL is explicitly provided (dev mode)
+  // In production, omit baseURL entirely to use relative URLs
+  ...(API_BASE_URL && { baseURL: API_BASE_URL }),
   headers: {
     'Content-Type': 'application/json',
   },

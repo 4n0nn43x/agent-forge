@@ -1,0 +1,89 @@
+# ==========================================
+# Stage 1: Build Frontend (React + Vite)
+# ==========================================
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+
+# Copy package files
+COPY frontend/package*.json ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy frontend source
+COPY frontend/ ./
+
+# CRITICAL: Remove any .env files to ensure Vite uses relative paths
+RUN rm -f .env .env.production .env.local .env.development
+
+# Build frontend - WITHOUT any VITE_API_URL, Vite will use relative paths
+RUN npm run build
+
+
+# ==========================================
+# Stage 2: Build Python Dependencies
+# ==========================================
+FROM python:3.11-slim AS python-builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy and install Python dependencies
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+
+# ==========================================
+# Stage 3: Final Production Image
+# ==========================================
+FROM python:3.11-slim
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    libmagic1 \
+    supervisor \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=python-builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy backend code
+COPY backend/ ./
+
+# Copy built frontend from builder
+COPY --from=frontend-builder /app/frontend/dist /var/www/html
+
+# Remove default nginx config
+RUN rm -f /etc/nginx/sites-enabled/default
+
+# Copy nginx and supervisor configs
+COPY nginx.conf /etc/nginx/sites-available/agentforge
+COPY supervisord.conf /etc/supervisor/supervisord.conf
+
+# Enable the nginx site
+RUN ln -s /etc/nginx/sites-available/agentforge /etc/nginx/sites-enabled/
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/chroma_data /var/log/supervisor
+
+# Expose only port 3000 (nginx)
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Start supervisor (runs both nginx and FastAPI)
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
