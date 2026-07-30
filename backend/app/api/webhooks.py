@@ -17,6 +17,7 @@ from ..models import (
     Agent,
     WebhookCreate,
     WebhookUpdate,
+    WebhookHealth,
     WebhookResponse,
     WebhookLogResponse,
 )
@@ -27,60 +28,46 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/agents/{agent_id}/webhooks", tags=["webhooks"])
 
 
-@router.post("/", response_model=WebhookResponse, status_code=status.HTTP_201_CREATED)
-async def create_webhook(
-    agent_id: int,
-    webhook_data: WebhookCreate,
-    db: AsyncSession = Depends(get_db),
-    config: RuntimeConfig = Depends(get_config),
-):
-    """Create a new webhook for an agent"""
-    # Verify agent exists
-    result = await db.execute(select(Agent).where(Agent.id == agent_id))
-    agent = result.scalar_one_or_none()
-    if not agent:
-        raise HTTPException(status_code=404, detail="Agent not found")
+# How many recent deliveries the health summary looks at.
+HEALTH_WINDOW = 10
 
-    # Validate events
-    invalid_events = [e for e in webhook_data.events if e not in WebhookService.SUPPORTED_EVENTS and e != "*"]
-    if invalid_events:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid events: {', '.join(invalid_events)}. Supported events: {', '.join(WebhookService.SUPPORTED_EVENTS)}"
-        )
 
-    # Validate the target URL (blocks loopback / private / metadata addresses)
-    try:
-        url = WebhookService.validate_url(webhook_data.url, config.allow_private_webhook_urls)
-    except WebhookUrlError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+async def delivery_health(db: AsyncSession, webhook_id: int) -> WebhookHealth:
+    """Summarise the last few deliveries so the UI can flag a broken endpoint.
 
-    # Generate secret if not provided
-    secret = webhook_data.secret
-    if not secret:
-        secret = f"whsec_{secrets.token_urlsafe(32)}"
+    Without this, a webhook that has been failing for days looks identical to one
+    that works — you only find out by opening its log.
+    """
+    result = await db.execute(
+        select(WebhookLog)
+        .where(WebhookLog.webhook_id == webhook_id)
+        .order_by(desc(WebhookLog.created_at))
+        .limit(HEALTH_WINDOW)
+    )
+    logs = result.scalars().all()
 
-    # Prepare headers
-    headers_json = None
-    if webhook_data.headers:
-        headers_json = json.dumps(webhook_data.headers)
+    if not logs:
+        return WebhookHealth()
 
-    # Create webhook
-    webhook = Webhook(
-        agent_id=agent_id,
-        name=webhook_data.name,
-        url=url,
-        events=",".join(webhook_data.events),
-        secret=secret,
-        headers=headers_json,
-        retry_count=webhook_data.retry_count,
+    consecutive = 0
+    for log in logs:  # newest first
+        if log.success:
+            break
+        consecutive += 1
+
+    return WebhookHealth(
+        total=len(logs),
+        failures=sum(1 for log in logs if not log.success),
+        consecutive_failures=consecutive,
+        last_status_code=logs[0].status_code,
+        last_delivery_at=logs[0].created_at,
+        # Two in a row is a pattern, not a blip.
+        failing=consecutive >= 2,
     )
 
-    db.add(webhook)
-    await db.commit()
-    await db.refresh(webhook)
 
-    # Return response
+async def webhook_response(db: AsyncSession, webhook: Webhook) -> WebhookResponse:
+    """Build the API representation of a webhook, health included."""
     return WebhookResponse(
         id=webhook.id,
         agent_id=webhook.agent_id,
@@ -89,9 +76,64 @@ async def create_webhook(
         events=webhook.events.split(",") if webhook.events else [],
         is_active=bool(webhook.is_active),
         retry_count=webhook.retry_count,
+        # The secret itself is never returned; the UI only needs to know it exists.
+        has_secret=bool(webhook.secret),
         created_at=webhook.created_at,
         last_triggered_at=webhook.last_triggered_at,
+        health=await delivery_health(db, webhook.id),
     )
+
+
+@router.post("/", response_model=WebhookResponse, status_code=status.HTTP_201_CREATED)
+async def create_webhook(
+    agent_id: int,
+    webhook_data: WebhookCreate,
+    db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
+):
+    """Create a new webhook for an agent"""
+    result = await db.execute(select(Agent).where(Agent.id == agent_id))
+    agent = result.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    invalid_events = [
+        e for e in webhook_data.events
+        if e not in WebhookService.SUPPORTED_EVENTS and e != "*"
+    ]
+    if invalid_events:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid events: {', '.join(invalid_events)}. "
+                f"Supported events: {', '.join(WebhookService.SUPPORTED_EVENTS)}"
+            ),
+        )
+
+    # Validate the target URL (blocks loopback / private / metadata addresses)
+    try:
+        url = WebhookService.validate_url(webhook_data.url, config.allow_private_webhook_urls)
+    except WebhookUrlError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Always sign: a webhook with no secret cannot be verified by the receiver.
+    secret = webhook_data.secret or f"whsec_{secrets.token_urlsafe(32)}"
+
+    webhook = Webhook(
+        agent_id=agent_id,
+        name=webhook_data.name,
+        url=url,
+        events=",".join(webhook_data.events),
+        secret=secret,
+        headers=json.dumps(webhook_data.headers) if webhook_data.headers else None,
+        retry_count=webhook_data.retry_count,
+    )
+
+    db.add(webhook)
+    await db.commit()
+    await db.refresh(webhook)
+
+    return await webhook_response(db, webhook)
 
 
 @router.get("/", response_model=List[WebhookResponse])
@@ -112,20 +154,7 @@ async def list_webhooks(
     )
     webhooks = result.scalars().all()
 
-    return [
-        WebhookResponse(
-            id=webhook.id,
-            agent_id=webhook.agent_id,
-            name=webhook.name,
-            url=webhook.url,
-            events=webhook.events.split(",") if webhook.events else [],
-            is_active=bool(webhook.is_active),
-            retry_count=webhook.retry_count,
-            created_at=webhook.created_at,
-            last_triggered_at=webhook.last_triggered_at,
-        )
-        for webhook in webhooks
-    ]
+    return [await webhook_response(db, webhook) for webhook in webhooks]
 
 
 @router.get("/{webhook_id}", response_model=WebhookResponse)
@@ -143,17 +172,7 @@ async def get_webhook(
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
 
-    return WebhookResponse(
-        id=webhook.id,
-        agent_id=webhook.agent_id,
-        name=webhook.name,
-        url=webhook.url,
-        events=webhook.events.split(",") if webhook.events else [],
-        is_active=bool(webhook.is_active),
-        retry_count=webhook.retry_count,
-        created_at=webhook.created_at,
-        last_triggered_at=webhook.last_triggered_at,
-    )
+    return await webhook_response(db, webhook)
 
 
 @router.put("/{webhook_id}", response_model=WebhookResponse)
@@ -204,17 +223,7 @@ async def update_webhook(
     await db.commit()
     await db.refresh(webhook)
 
-    return WebhookResponse(
-        id=webhook.id,
-        agent_id=webhook.agent_id,
-        name=webhook.name,
-        url=webhook.url,
-        events=webhook.events.split(",") if webhook.events else [],
-        is_active=bool(webhook.is_active),
-        retry_count=webhook.retry_count,
-        created_at=webhook.created_at,
-        last_triggered_at=webhook.last_triggered_at,
-    )
+    return await webhook_response(db, webhook)
 
 
 @router.delete("/{webhook_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -257,17 +266,7 @@ async def toggle_webhook(
     await db.commit()
     await db.refresh(webhook)
 
-    return WebhookResponse(
-        id=webhook.id,
-        agent_id=webhook.agent_id,
-        name=webhook.name,
-        url=webhook.url,
-        events=webhook.events.split(",") if webhook.events else [],
-        is_active=bool(webhook.is_active),
-        retry_count=webhook.retry_count,
-        created_at=webhook.created_at,
-        last_triggered_at=webhook.last_triggered_at,
-    )
+    return await webhook_response(db, webhook)
 
 
 @router.post("/{webhook_id}/test", status_code=status.HTTP_200_OK)
@@ -345,13 +344,83 @@ async def get_webhook_logs(
             status_code=log.status_code,
             success=bool(log.success),
             error_message=log.error_message,
+            # The request we sent and the answer we got: the reason a delivery log
+            # exists at all. Both were stored and neither was ever returned.
+            payload=log.payload,
+            response_body=log.response_body,
             created_at=log.created_at,
         )
         for log in logs
     ]
 
 
-@router.get("/events/supported", response_model=List[str])
+@router.post("/{webhook_id}/logs/{log_id}/replay")
+async def replay_webhook_log(
+    agent_id: int,
+    webhook_id: int,
+    log_id: int,
+    db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
+):
+    """Re-send a past delivery, using the payload exactly as it was first sent.
+
+    Retries happen inside a single delivery and then stop for good, so before
+    this a delivery lost to a broken endpoint stayed lost even after the endpoint
+    was fixed. The replay is recorded as its own log entry.
+    """
+    result = await db.execute(
+        select(Webhook).where(Webhook.id == webhook_id, Webhook.agent_id == agent_id)
+    )
+    webhook = result.scalar_one_or_none()
+    if not webhook:
+        raise HTTPException(status_code=404, detail="Webhook not found")
+
+    result = await db.execute(
+        select(WebhookLog).where(
+            WebhookLog.id == log_id, WebhookLog.webhook_id == webhook_id
+        )
+    )
+    log = result.scalar_one_or_none()
+    if not log:
+        raise HTTPException(status_code=404, detail="Delivery not found")
+
+    try:
+        stored = json.loads(log.payload)
+    except (TypeError, json.JSONDecodeError):
+        raise HTTPException(
+            status_code=422,
+            detail="This delivery's payload is not readable, so it cannot be replayed.",
+        )
+
+    # The stored payload is the full envelope; deliver_webhook builds a fresh one,
+    # so hand it back the inner data and let the timestamp be the replay's own.
+    success = await WebhookService.deliver_webhook(
+        db,
+        webhook,
+        log.event_type,
+        stored.get("data", stored),
+        config.allow_private_webhook_urls,
+    )
+
+    return {
+        "success": success,
+        "event": log.event_type,
+        "replayed_from": log_id,
+        "detail": (
+            "Delivered." if success else "Delivery failed again — see the newest log entry."
+        ),
+    }
+
+
+@router.get("/events/supported")
 async def get_supported_events():
-    """Get list of supported webhook events"""
-    return WebhookService.SUPPORTED_EVENTS
+    """The subscribable events, each with the exact envelope it is delivered in."""
+    return {
+        "events": WebhookService.event_catalogue(),
+        "signature": {
+            "header": "X-Webhook-Signature",
+            "format": "sha256=<hex hmac>",
+            "signed_value": "the raw request body, verbatim",
+            "algorithm": "HMAC-SHA256",
+        },
+    }

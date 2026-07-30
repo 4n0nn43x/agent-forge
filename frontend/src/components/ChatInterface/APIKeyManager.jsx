@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Plus, Trash2, Copy, Eye, EyeOff, Check } from 'lucide-react';
+import { AlertTriangle, Key, Plus, Trash2, Copy, Eye, EyeOff, Check } from 'lucide-react';
 import * as api from '../../services/api';
 import Alert from '../Common/Alert';
 import LoadingSpinner from '../Common/LoadingSpinner';
@@ -116,8 +116,8 @@ const APIKeyManager = ({ agentId }) => {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">API Keys</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-xl font-semibold text-ink">API Keys</h2>
+            <p className="text-sm text-muted mt-1">
               Generate API keys to use your agent via the Public API or embed it on websites
             </p>
           </div>
@@ -144,27 +144,27 @@ const APIKeyManager = ({ agentId }) => {
 
         {/* New Key Created Modal */}
         {newKeyData && (
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="mb-4 p-4 bg-warn-bg border border-warn/30 rounded-md">
             <div className="flex items-start space-x-2">
-              <div className="text-yellow-600 mt-0.5">⚠️</div>
+              <AlertTriangle className="w-4 h-4 text-warn flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="font-semibold text-gray-900 mb-2">
-                  Save your API key now!
+                <p className="font-medium text-ink mb-2">
+                  Copy this key now
                 </p>
-                <p className="text-sm text-gray-700 mb-3">
-                  This is the only time you'll be able to see this key. Copy it and store it securely.
+                <p className="text-sm text-ink-soft mb-3">
+                  It is shown once and never again. Store it somewhere safe before closing this.
                 </p>
-                <div className="flex items-center space-x-2 bg-white p-3 rounded border border-gray-300">
+                <div className="flex items-center space-x-2 bg-surface p-3 rounded border border-rule">
                   <code className="flex-1 font-mono text-sm break-all">
                     {newKeyData.key}
                   </code>
                   <button
                     onClick={() => copyToClipboard(newKeyData.key, 'new')}
-                    className="p-2 hover:bg-gray-100 rounded"
+                    className="p-2 hover:bg-subtle rounded"
                     title="Copy to clipboard"
                   >
                     {copiedKey === 'new' ? (
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-4 h-4 text-ready" />
                     ) : (
                       <Copy className="w-4 h-4" />
                     )}
@@ -172,7 +172,7 @@ const APIKeyManager = ({ agentId }) => {
                 </div>
                 <button
                   onClick={() => setNewKeyData(null)}
-                  className="mt-3 text-sm text-gray-600 hover:text-gray-900"
+                  className="mt-3 text-sm text-muted hover:text-ink"
                 >
                   I've saved my API key
                 </button>
@@ -184,8 +184,8 @@ const APIKeyManager = ({ agentId }) => {
 
       {/* Create New Key Modal */}
       {showNewKeyModal && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="font-semibold text-gray-900 mb-3">Create New API Key</h3>
+        <div className="mb-6 p-4 bg-subtle rounded-md border border-rule">
+          <h3 className="font-semibold text-ink mb-3">Create New API Key</h3>
           <input
             type="text"
             value={newKeyName}
@@ -217,10 +217,10 @@ const APIKeyManager = ({ agentId }) => {
 
       {/* API Keys List */}
       {apiKeys.length === 0 ? (
-        <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-          <Key className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 mb-1">No API keys yet</p>
-          <p className="text-sm text-gray-500">
+        <div className="text-center py-12 border-2 border-dashed border-rule rounded-md">
+          <Key className="w-12 h-12 text-faint mx-auto mb-3" />
+          <p className="text-muted mb-1">No API keys yet</p>
+          <p className="text-sm text-muted">
             Create your first API key to start using the Public API
           </p>
         </div>
@@ -229,19 +229,19 @@ const APIKeyManager = ({ agentId }) => {
           {apiKeys.map((key) => (
             <div
               key={key.id}
-              className={`border rounded-lg p-4 ${
-                key.is_active ? 'border-gray-200 bg-white' : 'border-gray-300 bg-gray-50'
+              className={`border rounded-md p-4 ${
+                key.is_active ? 'border-rule bg-surface' : 'border-rule bg-subtle'
               }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-2">
-                    <h4 className="font-semibold text-gray-900">{key.name}</h4>
+                    <h4 className="font-semibold text-ink">{key.name}</h4>
                     <span
                       className={`px-2 py-0.5 text-xs rounded-full ${
                         key.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-200 text-gray-600'
+                          ? 'bg-ready/15 text-ready'
+                          : 'bg-rule text-muted'
                       }`}
                     >
                       {key.is_active ? 'Active' : 'Disabled'}
@@ -249,34 +249,34 @@ const APIKeyManager = ({ agentId }) => {
                   </div>
 
                   <div className="flex items-center space-x-2 mb-2">
-                    <code className="text-sm font-mono text-gray-700 break-all">
+                    <code className="text-sm font-mono text-ink-soft break-all">
                       {visibleKeys[key.id] ? key.key : maskKey(key.key)}
                     </code>
                     <button
                       onClick={() => toggleKeyVisibility(key.id)}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      className="p-1 hover:bg-subtle rounded"
                       title={visibleKeys[key.id] ? 'Hide' : 'Show'}
                     >
                       {visibleKeys[key.id] ? (
-                        <EyeOff className="w-4 h-4 text-gray-500" />
+                        <EyeOff className="w-4 h-4 text-muted" />
                       ) : (
-                        <Eye className="w-4 h-4 text-gray-500" />
+                        <Eye className="w-4 h-4 text-muted" />
                       )}
                     </button>
                     <button
                       onClick={() => copyToClipboard(key.key, key.id)}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      className="p-1 hover:bg-subtle rounded"
                       title="Copy to clipboard"
                     >
                       {copiedKey === key.id ? (
-                        <Check className="w-4 h-4 text-green-600" />
+                        <Check className="w-4 h-4 text-ready" />
                       ) : (
-                        <Copy className="w-4 h-4 text-gray-500" />
+                        <Copy className="w-4 h-4 text-muted" />
                       )}
                     </button>
                   </div>
 
-                  <div className="flex items-center space-x-4 text-xs text-gray-500">
+                  <div className="flex items-center space-x-4 text-xs text-muted">
                     <span>Created: {formatDate(key.created_at)}</span>
                     {key.last_used_at && (
                       <span>Last used: {formatDate(key.last_used_at)}</span>
@@ -290,15 +290,15 @@ const APIKeyManager = ({ agentId }) => {
                     onClick={() => handleToggleKey(key.id)}
                     className={`px-3 py-1 text-sm rounded ${
                       key.is_active
-                        ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                        : 'bg-green-100 text-green-800 hover:bg-green-200'
+                        ? 'bg-warn/15 text-warn hover:bg-warn/25'
+                        : 'bg-ready/15 text-ready hover:bg-ready/25'
                     }`}
                   >
                     {key.is_active ? 'Disable' : 'Enable'}
                   </button>
                   <button
                     onClick={() => handleDeleteKey(key.id, key.name)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded"
+                    className="p-2 text-danger hover:bg-danger-bg rounded"
                     title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -311,12 +311,12 @@ const APIKeyManager = ({ agentId }) => {
       )}
 
       {/* Usage Instructions */}
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="font-semibold text-blue-900 mb-2">How to use your API key</h3>
-        <p className="text-sm text-blue-800 mb-2">
+      <div className="mt-6 p-4 bg-primary-50 border border-primary-200 rounded-md">
+        <h3 className="font-semibold text-primary-800 mb-2">How to use your API key</h3>
+        <p className="text-sm text-primary-800 mb-2">
           Use your API key to authenticate requests to the Public API:
         </p>
-        <pre className="text-xs bg-blue-100 p-3 rounded overflow-x-auto">
+        <pre className="text-xs bg-primary-100 p-3 rounded overflow-x-auto">
           <code>
 {`Authorization: Bearer YOUR_API_KEY
 

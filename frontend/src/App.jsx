@@ -1,72 +1,115 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './components/Dashboard/Dashboard';
 import AgentBuilder from './components/AgentBuilder/AgentBuilder';
 import ChatInterface from './components/ChatInterface/ChatInterface';
 import SettingsPage from './components/Settings/SettingsPage';
+import ThemeToggle from './components/Common/ThemeToggle';
+import Mark from './components/Common/Mark';
+import Onboarding from './components/Onboarding/Onboarding';
 import useAgentStore from './store/agentStore';
-import { Bot, Plus, Home, Settings } from 'lucide-react';
+import * as api from './services/api';
+import { Plus } from 'lucide-react';
+
+const NAV = [
+  { to: '/', label: 'Agents' },
+  { to: '/settings', label: 'Settings' },
+];
 
 function App() {
   const location = useLocation();
   const { fetchTemplates } = useAgentStore();
 
+  // null while we don't know yet, so the app doesn't flash the empty dashboard
+  // before the first-run flow takes over.
+  const [onboarding, setOnboarding] = useState(null);
+
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
 
+  useEffect(() => {
+    api
+      .getOnboarding()
+      .then((response) => setOnboarding(response.data))
+      .catch((error) => {
+        // Never block the app on this. But say so loudly: a bare catch here
+        // silently reported "already onboarded" and hid a proxy misconfiguration
+        // that was breaking every redirecting endpoint, not just this one.
+        console.error(
+          'Could not read first-run state, skipping the setup flow:',
+          error.response?.status ?? error.message
+        );
+        setOnboarding({ completed: true, unavailable: true });
+      });
+  }, []);
+
+  const dismissOnboarding = useCallback(
+    () => setOnboarding((previous) => ({ ...previous, completed: true })),
+    []
+  );
+
+  if (onboarding === null) {
+    return <div className="min-h-screen bg-paper" />;
+  }
+
+  if (!onboarding.completed) {
+    return <Onboarding state={onboarding} onDone={dismissOnboarding} />;
+  }
+
   const isChatPage = location.pathname.startsWith('/agent/');
 
   return (
-    <div className={isChatPage ? "h-screen bg-gray-50 flex flex-col" : "min-h-screen bg-gray-50"}>
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link to="/" className="flex items-center space-x-2">
-              <Bot className="w-8 h-8 text-primary-600" />
-              <span className="text-xl font-bold text-gray-900">AgentForge</span>
-            </Link>
-
-            <nav className="flex items-center space-x-4">
-              <Link
-                to="/"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                  location.pathname === '/'
-                    ? 'bg-primary-50 text-primary-600'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Home className="w-5 h-5" />
-                <span>Dashboard</span>
+    <div className={isChatPage ? 'h-screen bg-paper flex flex-col' : 'min-h-screen bg-paper flex flex-col'}>
+      <header className="bg-surface border-b border-rule sticky top-0 z-20 flex-shrink-0">
+        <div className="shell">
+          <div className="flex justify-between items-center h-14">
+            <div className="flex items-center gap-7">
+              <Link to="/" className="flex items-center gap-2.5 group">
+                <Mark className="w-6 h-6 text-primary-600" />
+                <span className="text-base font-semibold tracking-tight text-ink">
+                  AgentForge
+                </span>
               </Link>
 
-              <Link
-                to="/settings"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                  location.pathname === '/settings'
-                    ? 'bg-primary-50 text-primary-600'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <Settings className="w-5 h-5" />
-                <span>Settings</span>
-              </Link>
+              {/* Text-only nav with an underline on the active item: the label is
+                  the affordance, no pill needed. */}
+              <nav className="hidden sm:flex items-center gap-1">
+                {NAV.map(({ to, label }) => {
+                  const active = location.pathname === to;
+                  return (
+                    <Link
+                      key={to}
+                      to={to}
+                      aria-current={active ? 'page' : undefined}
+                      className={`relative px-2.5 py-1.5 text-sm rounded transition-colors ${
+                        active
+                          ? 'text-ink font-medium'
+                          : 'text-muted hover:text-ink hover:bg-subtle'
+                      }`}
+                    >
+                      {label}
+                      {active && (
+                        <span className="absolute left-2.5 right-2.5 -bottom-[13px] h-px bg-primary-600" />
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
 
-              <Link
-                to="/create"
-                className="flex items-center space-x-2 btn btn-primary"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Create Agent</span>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <Link to="/create" className="btn btn-primary">
+                <Plus className="w-4 h-4" />
+                <span>New agent</span>
               </Link>
-            </nav>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className={isChatPage ? "flex-1 overflow-hidden" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}>
+      <main className={isChatPage ? 'flex-1 overflow-hidden' : 'flex-1 shell py-10'}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/create" element={<AgentBuilder />} />
@@ -75,14 +118,20 @@ function App() {
         </Routes>
       </main>
 
-      {/* Footer - Hidden on chat page */}
       {!isChatPage && (
-        <footer className="bg-white border-t border-gray-200 mt-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="text-center text-gray-500 text-sm">
-              <p>AgentForge - No-Code AI Agent Builder</p>
-              <p className="mt-1">Built for NodeOps Hackathon 2025</p>
-            </div>
+        <footer className="border-t border-rule mt-16">
+          <div className="shell py-6 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-muted">
+              AgentForge — build a retrieval-grounded chat agent from your own documents.
+            </p>
+            <a
+              href="https://github.com/4n0nn43x/agent-forge"
+              className="text-xs text-muted hover:text-ink transition-colors"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Source on GitHub
+            </a>
           </div>
         </footer>
       )}

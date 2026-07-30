@@ -1,810 +1,603 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgentForge Widget - Demo & Documentation</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentForge widget — embed and theme it</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  /* Same tokens as the app: warm neutrals, cool petrol accent, hairlines, no
+     shadows on layout surfaces. The widget's own shadow is its only elevation. */
+  :root {
+    --paper: #fcfcfb;
+    --surface: #ffffff;
+    --subtle: #f5f4f2;
+    --rule: #e6e4e0;
+    --ink: #1a1817;
+    --ink-soft: #44403c;
+    --muted: #756e69;
+    --faint: #8d8783;
+    --accent: #0e6f7e;
+    --accent-soft: #f0f7f8;
+    --radius: 6px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0c0b0a;
+      --surface: #171614;
+      --subtle: #211f1d;
+      --rule: #2e2b28;
+      --ink: #faf9f7;
+      --ink-soft: #d6d3ce;
+      --muted: #a29d96;
+      --faint: #6f6a64;
+      --accent: #74b7c3;
+      --accent-soft: #0a282e;
+      color-scheme: dark;
+    }
+  }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #1F2937;
-            background: #F9FAFB;
-        }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .header {
-            background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
-            color: white;
-            padding: 5rem 2rem 4rem;
-            text-align: center;
-            border-bottom: 4px solid #1E40AF;
-        }
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--ink);
+    background: var(--paper);
+    -webkit-font-smoothing: antialiased;
+  }
 
-        .header h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-        }
+  code, .val, kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-        .header-icon {
-            width: 48px;
-            height: 48px;
-        }
+  .shell { max-width: 62rem; margin: 0 auto; padding: 0 1.5rem; }
 
-        .header p {
-            font-size: 1.25rem;
-            opacity: 0.95;
-            max-width: 600px;
-            margin: 0 auto;
-        }
+  /* --- masthead ---------------------------------------------------------- */
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 3rem 2rem;
-        }
+  .masthead { border-bottom: 1px solid var(--rule); background: var(--surface); }
+  .masthead .shell { display: flex; align-items: center; justify-content: space-between; height: 3.5rem; }
+  .wordmark { display: flex; align-items: center; gap: .6rem; font-weight: 600; letter-spacing: -.01em; }
+  .wordmark svg { width: 1.25rem; height: 1.25rem; fill: var(--accent); }
+  .masthead a { color: var(--muted); text-decoration: none; font-size: .8125rem; }
+  .masthead a:hover { color: var(--ink); }
 
-        .section {
-            background: white;
-            padding: 2.5rem;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
+  /* --- hero: the thesis is the widget itself, running -------------------- */
 
-        .section-title {
-            font-size: 1.75rem;
-            margin-bottom: 1.5rem;
-            color: #111827;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
+  .hero { padding: 5rem 0 4rem; }
+  .hero h1 {
+    font-size: clamp(1.9rem, 4.5vw, 2.6rem);
+    line-height: 1.1;
+    letter-spacing: -.03em;
+    font-weight: 600;
+    max-width: 30ch;
+    text-wrap: balance;
+  }
+  .hero p { margin-top: 1.1rem; max-width: 58ch; color: var(--muted); font-size: 1.0625rem; }
+  .hero .cues { margin-top: 2rem; display: flex; flex-wrap: wrap; gap: .5rem; }
 
-        .section-icon {
-            width: 28px;
-            height: 28px;
-            color: #3B82F6;
-        }
+  .eyebrow {
+    font-size: .6875rem; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted);
+  }
 
-        .code-block {
-            background: #1F2937;
-            color: #F9FAFB;
-            padding: 1.5rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin: 1rem 0;
-            border: 1px solid #374151;
-            position: relative;
-        }
+  /* --- sections ---------------------------------------------------------- */
 
-        .code-block pre {
-            margin: 0;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-        }
+  section { padding: 3.5rem 0; border-top: 1px solid var(--rule); }
+  h2 { font-size: 1.375rem; letter-spacing: -.02em; font-weight: 600; text-wrap: balance; }
+  h3 { font-size: .9375rem; font-weight: 600; }
+  section > .shell > p { margin-top: .6rem; max-width: 62ch; color: var(--muted); }
 
-        .code-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid #374151;
-        }
+  .grid { display: grid; gap: 1.5rem; margin-top: 2rem; }
+  @media (min-width: 56rem) { .grid.two { grid-template-columns: 1fr 1fr; align-items: start; } }
 
-        .code-label {
-            color: #9CA3AF;
-            font-size: 0.875rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+  .panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); }
+  .panel-pad { padding: 1.25rem; }
 
-        .copy-button {
-            background: #374151;
-            color: #D1D5DB;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.875rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
+  /* --- code -------------------------------------------------------------- */
 
-        .copy-button:hover {
-            background: #4B5563;
-            color: white;
-        }
+  pre {
+    background: var(--subtle); border: 1px solid var(--rule); border-radius: var(--radius);
+    padding: 1rem; overflow-x: auto; font-size: .8125rem; line-height: 1.6;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  pre .k { color: var(--accent); }
+  pre .s { color: var(--ink-soft); }
+  pre .c { color: var(--faint); }
 
-        .copy-icon {
-            width: 16px;
-            height: 16px;
-        }
+  .copy-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; margin-bottom: .5rem;
+  }
 
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-top: 1.5rem;
-        }
+  button, select, input[type="text"], input[type="range"] { font: inherit; }
 
-        .feature-card {
-            background: #F9FAFB;
-            padding: 1.5rem;
-            border-radius: 8px;
-            border: 1px solid #E5E7EB;
-            transition: all 0.2s;
-        }
+  .btn {
+    display: inline-flex; align-items: center; gap: .45rem; height: 2.125rem; padding: 0 .85rem;
+    border-radius: 5px; border: 1px solid var(--rule); background: var(--surface);
+    color: var(--ink-soft); font-size: .8125rem; font-weight: 500; cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .btn:hover { background: var(--subtle); color: var(--ink); }
+  .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+  .btn-accent:hover { filter: brightness(1.08); background: var(--accent); color: var(--paper); }
+  .btn:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
 
-        .feature-card:hover {
-            border-color: #3B82F6;
-            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);
-        }
+  .val {
+    display: inline-flex; align-items: center; font-size: .75rem;
+    background: var(--subtle); border: 1px solid var(--rule);
+    border-radius: 4px; padding: .1rem .35rem; color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .val-accent { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
-        .feature-card-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
+  /* --- controls ---------------------------------------------------------- */
 
-        .feature-icon {
-            width: 24px;
-            height: 24px;
-            color: #3B82F6;
-            flex-shrink: 0;
-        }
+  .field { display: grid; gap: .35rem; }
+  .field + .field { margin-top: 1rem; }
+  label { font-size: .75rem; font-weight: 500; color: var(--ink-soft); }
+  select, input[type="text"] {
+    height: 2.125rem; padding: 0 .6rem; font-size: .8125rem;
+    color: var(--ink); background: var(--surface);
+    border: 1px solid var(--rule); border-radius: 5px; width: 100%;
+  }
+  input[type="color"] {
+    width: 2.125rem; height: 2.125rem; padding: 0; border: 1px solid var(--rule);
+    border-radius: 5px; background: none; cursor: pointer;
+  }
+  .row { display: flex; gap: .5rem; align-items: center; }
+  .row input[type="text"] { flex: 1; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
 
-        .feature-card h3 {
-            color: #111827;
-            font-size: 1.125rem;
-            font-weight: 600;
-        }
+  /* --- table ------------------------------------------------------------- */
 
-        .feature-card p {
-            color: #6B7280;
-            font-size: 0.875rem;
-            line-height: 1.5;
-        }
+  table { width: 100%; border-collapse: collapse; font-size: .8125rem; margin-top: 1.5rem; }
+  th, td { text-align: left; padding: .55rem .75rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; font-size: .6875rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  td:first-child { white-space: nowrap; }
+  td code { font-size: .75rem; color: var(--accent); }
+  .scroll-x { overflow-x: auto; }
 
-        .note {
-            background: #FEF3C7;
-            border-left: 4px solid #F59E0B;
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 4px;
-            display: flex;
-            gap: 0.75rem;
-        }
+  footer { border-top: 1px solid var(--rule); padding: 2rem 0 3rem; color: var(--muted); font-size: .8125rem; }
+  footer .shell { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }
+  a { color: var(--accent); }
 
-        .note-icon {
-            width: 20px;
-            height: 20px;
-            color: #F59E0B;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
+  .note {
+    margin-top: 1rem; padding: .75rem .9rem; font-size: .8125rem; color: var(--muted);
+    background: var(--subtle); border: 1px solid var(--rule); border-radius: var(--radius);
+  }
 
-        .note-content strong {
-            color: #92400E;
-            font-weight: 600;
-        }
+  /* The launcher gets one attention beat before the scripted run, and nothing
+     else on this page moves. Scattered effects are what make a page feel
+     machine-made; a single orchestrated moment reads as intent. */
+  @keyframes nudge {
+    0%, 100% { transform: none; }
+    30% { transform: translateY(-5px); }
+    55% { transform: translateY(0); }
+  }
+  agentforge-widget[data-nudge] .launcher { animation: nudge .7s ease; }
 
-        .steps-list {
-            list-style: none;
-            counter-reset: step-counter;
-            margin: 1.5rem 0;
-        }
-
-        .steps-list li {
-            counter-increment: step-counter;
-            padding: 1rem 1rem 1rem 3.5rem;
-            position: relative;
-            margin-bottom: 1rem;
-            background: #F9FAFB;
-            border-radius: 8px;
-            border: 1px solid #E5E7EB;
-        }
-
-        .steps-list li::before {
-            content: counter(step-counter);
-            position: absolute;
-            left: 1rem;
-            top: 1rem;
-            width: 32px;
-            height: 32px;
-            background: #3B82F6;
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 0.875rem;
-        }
-
-        .security-list {
-            list-style: none;
-            margin: 1.5rem 0;
-        }
-
-        .security-list li {
-            padding: 0.75rem 0.75rem 0.75rem 2.5rem;
-            position: relative;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: flex-start;
-        }
-
-        .security-list li::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0.875rem;
-            width: 20px;
-            height: 20px;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2310B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>') no-repeat center;
-            background-size: contain;
-        }
-
-        .config-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-        }
-
-        .config-table th,
-        .config-table td {
-            padding: 0.875rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid #E5E7EB;
-        }
-
-        .config-table th {
-            background: #F9FAFB;
-            font-weight: 600;
-            color: #374151;
-            font-size: 0.875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .config-table td:first-child {
-            font-family: 'Monaco', 'Menlo', monospace;
-            color: #3B82F6;
-            font-weight: 500;
-        }
-
-        .config-table .required {
-            display: inline-block;
-            padding: 0.125rem 0.5rem;
-            background: #FEE2E2;
-            color: #991B1B;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .config-table .optional {
-            display: inline-block;
-            padding: 0.125rem 0.5rem;
-            background: #E0E7FF;
-            color: #3730A3;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .demo-banner {
-            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            text-align: center;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-        }
-
-        .demo-icon {
-            width: 32px;
-            height: 32px;
-        }
-
-        .demo-banner h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-
-        code {
-            background: #F3F4F6;
-            padding: 0.25rem 0.5rem;
-            border-radius: 4px;
-            font-family: 'Monaco', 'Menlo', monospace;
-            font-size: 0.875em;
-            color: #DC2626;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 3rem 2rem;
-            color: #6B7280;
-            font-size: 0.875rem;
-        }
-
-        .footer a {
-            color: #3B82F6;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
 </head>
 <body>
-    <div class="header">
-        <h1>
-            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            AgentForge Widget
-        </h1>
-        <p>Embed powerful AI chat on any website in minutes. No dependencies, fully customizable.</p>
+
+<header class="masthead">
+  <div class="shell">
+    <span class="wordmark">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 10.2h17.2a1.6 1.6 0 0 1 0 3.2h-5.05v2.15c0 1.42.82 2.71 2.1 3.32a.9.9 0 0 1-.39 1.71H6.74a.9.9 0 0 1-.39-1.71c1.28-.61 2.1-1.9 2.1-3.32V13.4H3.4a1.6 1.6 0 0 1 0-3.2Z"/></svg>
+      AgentForge
+    </span>
+    <a href="https://github.com/4n0nn43x/agent-forge">Source on GitHub</a>
+  </div>
+</header>
+
+<div class="shell hero">
+  <p class="eyebrow">Embeddable widget</p>
+  <h1>Put your agent on any page, in that page's own visual language.</h1>
+  <p>
+    One script tag renders a chat panel inside a shadow root, so nothing you already
+    ship can style it by accident and it cannot style anything of yours. What it looks
+    like is a contract of CSS custom properties you control.
+  </p>
+  <div class="cues">
+    <span class="val">shadow DOM</span>
+    <span class="val">8 theming tokens</span>
+    <span class="val">light · dark · auto</span>
+    <span class="val">no dependencies</span>
+    <span class="val">~14 kB</span>
+  </div>
+  <div class="note" id="script-note">
+    The widget in the corner is real code running on this page. Press
+    <strong>Play the demo</strong> below to watch a scripted exchange — this page has no
+    backend, so the replies are canned, not generated.
+  </div>
+  <div class="cues">
+    <button class="btn btn-accent" id="play">Play the demo</button>
+    <button class="btn" id="clear">Clear the thread</button>
+  </div>
+</div>
+
+<section>
+  <div class="shell">
+    <p class="eyebrow">Theming</p>
+    <h2>Change a token, watch it land</h2>
+    <p>
+      These controls write CSS custom properties onto the <code>&lt;agentforge-widget&gt;</code>
+      element — exactly what your own stylesheet would do. Nothing is rebuilt or re-mounted.
+    </p>
+
+    <div class="grid two">
+      <div class="panel panel-pad">
+        <div class="field">
+          <label for="t-accent">Accent</label>
+          <div class="row">
+            <input type="color" id="t-accent" value="#0e6f7e" aria-label="Accent colour">
+            <input type="text" id="t-accent-hex" value="#0e6f7e" spellcheck="false">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="t-theme">Colour scheme</label>
+          <select id="t-theme">
+            <option value="auto" selected>auto — follow the visitor's OS</option>
+            <option value="light">light</option>
+            <option value="dark">dark</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="t-radius">Corner radius — <span class="val" id="t-radius-out">10px</span></label>
+          <input type="range" id="t-radius" min="0" max="24" value="10">
+        </div>
+
+        <div class="field">
+          <label for="t-width">Panel width — <span class="val" id="t-width-out">380px</span></label>
+          <input type="range" id="t-width" min="300" max="520" step="10" value="380">
+        </div>
+
+        <div class="field">
+          <label for="t-font">Type</label>
+          <select id="t-font">
+            <option value="inherit" selected>inherit — adopt the host page's stack</option>
+            <option value="ui-monospace, SFMono-Regular, Menlo, monospace">monospace</option>
+            <option value="Georgia, 'Times New Roman', serif">serif</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="t-position">Corner</label>
+          <select id="t-position">
+            <option value="bottom-right" selected>bottom-right</option>
+            <option value="bottom-left">bottom-left</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <div class="copy-head">
+          <h3>The equivalent CSS</h3>
+          <button class="btn" data-copy="#css-out">Copy</button>
+        </div>
+        <pre id="css-out"></pre>
+        <div class="note">
+          Set these in your own stylesheet and you need no JavaScript configuration at
+          all beyond the key and the URL.
+        </div>
+      </div>
     </div>
+  </div>
+</section>
 
-    <div class="container">
-        <div class="demo-banner">
-            <svg class="demo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="m9 12 2 2 4-4"/>
-            </svg>
-            <div>
-                <h3>Live Demo Active</h3>
-                <p style="font-size: 0.875rem; opacity: 0.95; margin-top: 0.25rem;">Look for the chat icon in the bottom right corner!</p>
-            </div>
-        </div>
+<section>
+  <div class="shell">
+    <p class="eyebrow">Install</p>
+    <h2>Two tags</h2>
+    <p>
+      Create an API key on the agent's <strong>API Keys</strong> tab. Scope it with an origin
+      allowlist so the key only works from your domain, and give it an hourly rate limit —
+      both are enforced server-side.
+    </p>
 
-        <div class="section">
-            <h2 class="section-title">
-                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                    <path d="M2 17l10 5 10-5"/>
-                    <path d="M2 12l10 5 10-5"/>
-                </svg>
-                Features
-            </h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-                            <line x1="12" y1="22.08" x2="12" y2="12"/>
-                        </svg>
-                        <h3>Easy Integration</h3>
-                    </div>
-                    <p>Just two lines of code to add a complete AI chatbot to any website</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="13.5" cy="6.5" r=".5"/>
-                            <circle cx="17.5" cy="10.5" r=".5"/>
-                            <circle cx="8.5" cy="7.5" r=".5"/>
-                            <circle cx="6.5" cy="12.5" r=".5"/>
-                            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
-                        </svg>
-                        <h3>Fully Customizable</h3>
-                    </div>
-                    <p>Match your brand with custom colors, position, messages, and avatar</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/>
-                            <path d="m9 12 2 2 4-4"/>
-                        </svg>
-                        <h3>Zero Dependencies</h3>
-                    </div>
-                    <p>Lightweight vanilla JavaScript with no external libraries required</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                        <h3>Persistent Memory</h3>
-                    </div>
-                    <p>Conversations are saved and continue across page reloads</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                        </svg>
-                        <h3>Secure & Private</h3>
-                    </div>
-                    <p>API key authentication with CORS support and rate limiting</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="20" height="14" x="2" y="7" rx="2" ry="2"/>
-                            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
-                        </svg>
-                        <h3>Mobile Responsive</h3>
-                    </div>
-                    <p>Works perfectly on all devices, from phones to desktops</p>
-                </div>
-            </div>
-        </div>
+    <div class="copy-head" style="margin-top:2rem">
+      <h3>Minimum</h3>
+      <button class="btn" data-copy="#snippet-min">Copy</button>
+    </div>
+    <pre id="snippet-min"><span class="c">&lt;!-- before &lt;/body&gt; --&gt;</span>
+&lt;<span class="k">script</span> src=<span class="s">"https://your-domain.com/agentforge-widget.js"</span>&gt;&lt;/<span class="k">script</span>&gt;
+&lt;<span class="k">script</span>&gt;
+  AgentForge.<span class="k">init</span>({
+    apiKey: <span class="s">'af_your_public_key'</span>,
+    apiUrl: <span class="s">'https://your-domain.com/api/v1/public'</span>
+  });
+&lt;/<span class="k">script</span>&gt;</pre>
 
-        <div class="section">
-            <h2 class="section-title">
-                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="m8 6 4-4 4 4"/>
-                    <path d="M12 2v10.3a4 4 0 0 1-1.172 2.872L4 22"/>
-                    <path d="m20 22-5-5"/>
-                </svg>
-                Quick Start
-            </h2>
-            <p>Add this code to your website, right before the closing <code>&lt;/body&gt;</code> tag:</p>
+    <div class="copy-head" style="margin-top:2rem">
+      <h3>Everything you can pass</h3>
+      <button class="btn" data-copy="#snippet-full">Copy</button>
+    </div>
+    <pre id="snippet-full">&lt;<span class="k">script</span> src=<span class="s">"https://your-domain.com/agentforge-widget.js"</span>&gt;&lt;/<span class="k">script</span>&gt;
+&lt;<span class="k">script</span>&gt;
+  AgentForge.<span class="k">init</span>({
+    apiKey: <span class="s">'af_your_public_key'</span>,
+    apiUrl: <span class="s">'https://your-domain.com/api/v1/public'</span>,
 
-            <div class="code-block">
-                <div class="code-header">
-                    <span class="code-label">HTML</span>
-                    <button class="copy-button" onclick="copyCode(this)">
-                        <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-                        </svg>
-                        Copy
-                    </button>
-                </div>
-                <pre>&lt;!-- AgentForge Widget --&gt;
-&lt;script src="https://your-domain.com/agentforge-widget.js"&gt;&lt;/script&gt;
-&lt;script&gt;
-  AgentForge.init({
-    apiKey: 'af_xxxxxxxxxxxxx',
-    apiUrl: 'https://your-api.com/api/v1/public',
-    position: 'bottom-right',
-    primaryColor: '#3B82F6',
-    title: 'Chat with us!',
-    subtitle: 'We typically reply in a few minutes'
+    name: <span class="s">'Support'</span>,              <span class="c">// launcher label and panel title</span>
+    subtitle: <span class="s">''</span>,                 <span class="c">// optional line under the name</span>
+    placeholder: <span class="s">'Ask a question'</span>,
+    welcomeMessage: <span class="s">''</span>,           <span class="c">// empty uses the built-in empty state</span>
+    avatar: <span class="k">null</span>,                  <span class="c">// image URL</span>
+
+    position: <span class="s">'bottom-right'</span>,      <span class="c">// or 'bottom-left'</span>
+    theme: <span class="s">'auto'</span>,                 <span class="c">// 'auto' | 'light' | 'dark'</span>
+    showSources: <span class="k">false</span>,            <span class="c">// name the documents behind each answer</span>
+    openOnLoad: <span class="k">false</span>,
+    zIndex: <span class="k">2147483000</span>,
+
+    tokens: {                        <span class="c">// same names as the CSS properties, minus --af-</span>
+      accent: <span class="s">'#0e6f7e'</span>,
+      radius: <span class="s">'10px'</span>,
+      font: <span class="s">'inherit'</span>
+    }
   });
 &lt;/script&gt;</pre>
-            </div>
 
-            <div class="note">
-                <svg class="note-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 16v-4"/>
-                    <path d="M12 8h.01"/>
-                </svg>
-                <div class="note-content">
-                    <strong>Important:</strong> Replace <code>af_xxxxxxxxxxxxx</code> with your actual API key. You can generate API keys from your agent's dashboard in the AgentForge platform.
-                </div>
-            </div>
-        </div>
+    <div class="note">
+      <strong>Source citations are off.</strong> Visitors would see your internal
+      filenames and retrieval scores, so the server withholds them from the public
+      response unless you turn on <em>Return source citations on the public API</em>
+      in Settings — and the widget only draws them when
+      <code>showSources: true</code>. Turning off the widget flag alone would be
+      cosmetic: the filenames would still be in the JSON.
+    </div>
+    <div class="note">
+      <strong>Upgrading?</strong> <code>primaryColor</code> and <code>title</code> from the
+      previous version still work — they map onto <code>tokens.accent</code> and
+      <code>name</code>. Nothing to change unless you want the new tokens.
+    </div>
+  </div>
+</section>
 
-        <div class="section">
-            <h2 class="section-title">
-                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 1v6m0 6v6"/>
-                    <path d="m4.93 4.93 4.24 4.24m5.66 5.66 4.24 4.24"/>
-                    <path d="M1 12h6m6 0h6"/>
-                    <path d="m4.93 19.07 4.24-4.24m5.66-5.66 4.24-4.24"/>
-                </svg>
-                Configuration Options
-            </h2>
-            <p>Customize the widget to match your needs:</p>
+<section>
+  <div class="shell">
+    <p class="eyebrow">Reference</p>
+    <h2>The token contract</h2>
+    <p>
+      Every value the widget draws with. Set any of them on the
+      <code>&lt;agentforge-widget&gt;</code> element; unset ones fall back to the defaults
+      below, which flip with the colour scheme.
+    </p>
 
-            <table class="config-table">
-                <thead>
-                    <tr>
-                        <th>Parameter</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>apiKey</td>
-                        <td>string</td>
-                        <td><span class="required">Required</span></td>
-                        <td>Your AgentForge API key</td>
-                    </tr>
-                    <tr>
-                        <td>apiUrl</td>
-                        <td>string</td>
-                        <td><span class="required">Required</span></td>
-                        <td>API endpoint URL</td>
-                    </tr>
-                    <tr>
-                        <td>position</td>
-                        <td>string</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>'bottom-right' or 'bottom-left' (default: 'bottom-right')</td>
-                    </tr>
-                    <tr>
-                        <td>primaryColor</td>
-                        <td>string</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>Main color in hex format (default: '#3B82F6')</td>
-                    </tr>
-                    <tr>
-                        <td>title</td>
-                        <td>string</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>Widget title (default: 'Chat with us!')</td>
-                    </tr>
-                    <tr>
-                        <td>subtitle</td>
-                        <td>string</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>Widget subtitle (default: 'We typically reply in a few minutes')</td>
-                    </tr>
-                    <tr>
-                        <td>placeholder</td>
-                        <td>string</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>Input placeholder (default: 'Type your message...')</td>
-                    </tr>
-                    <tr>
-                        <td>avatar</td>
-                        <td>string</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>Avatar image URL</td>
-                    </tr>
-                    <tr>
-                        <td>welcomeMessage</td>
-                        <td>string</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>First message displayed to users (default: 'Hi! 👋 How can I help you today?')</td>
-                    </tr>
-                    <tr>
-                        <td>zIndex</td>
-                        <td>number</td>
-                        <td><span class="optional">Optional</span></td>
-                        <td>CSS z-index (default: 9999)</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="section">
-            <h2 class="section-title">
-                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="13.5" cy="6.5" r=".5"/>
-                    <circle cx="17.5" cy="10.5" r=".5"/>
-                    <circle cx="8.5" cy="7.5" r=".5"/>
-                    <circle cx="6.5" cy="12.5" r=".5"/>
-                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
-                </svg>
-                Customization Examples
-            </h2>
-
-            <h3 style="margin: 1.5rem 0 1rem; color: #374151; font-size: 1.125rem;">Purple Theme</h3>
-            <div class="code-block">
-                <div class="code-header">
-                    <span class="code-label">JavaScript</span>
-                    <button class="copy-button" onclick="copyCode(this)">
-                        <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-                        </svg>
-                        Copy
-                    </button>
-                </div>
-                <pre>AgentForge.init({
-  apiKey: 'your_key',
-  apiUrl: 'your_url',
-  primaryColor: '#9333EA',
-  title: 'Support Chat',
-  subtitle: 'Ask us anything!',
-  welcomeMessage: 'Hello! How can we assist you today?'
-});</pre>
-            </div>
-
-            <h3 style="margin: 1.5rem 0 1rem; color: #374151; font-size: 1.125rem;">Green Theme (Left Position)</h3>
-            <div class="code-block">
-                <div class="code-header">
-                    <span class="code-label">JavaScript</span>
-                    <button class="copy-button" onclick="copyCode(this)">
-                        <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-                        </svg>
-                        Copy
-                    </button>
-                </div>
-                <pre>AgentForge.init({
-  apiKey: 'your_key',
-  apiUrl: 'your_url',
-  position: 'bottom-left',
-  primaryColor: '#10B981',
-  title: 'Need Help?',
-  subtitle: 'We\'re here 24/7'
-});</pre>
-            </div>
-
-            <h3 style="margin: 1.5rem 0 1rem; color: #374151; font-size: 1.125rem;">Professional Dark Theme</h3>
-            <div class="code-block">
-                <div class="code-header">
-                    <span class="code-label">JavaScript</span>
-                    <button class="copy-button" onclick="copyCode(this)">
-                        <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
-                            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
-                        </svg>
-                        Copy
-                    </button>
-                </div>
-                <pre>AgentForge.init({
-  apiKey: 'your_key',
-  apiUrl: 'your_url',
-  primaryColor: '#1F2937',
-  title: 'AI Assistant',
-  subtitle: 'Ask me anything',
-  placeholder: 'Start typing...'
-});</pre>
-            </div>
-        </div>
-
-        <div class="section">
-            <h2 class="section-title">
-                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect width="20" height="14" x="2" y="3" rx="2" ry="2"/>
-                    <line x1="8" y1="21" x2="16" y2="21"/>
-                    <line x1="12" y1="17" x2="12" y2="21"/>
-                </svg>
-                How to Get Your API Key
-            </h2>
-            <ol class="steps-list">
-                <li>Navigate to your AgentForge dashboard at your deployment URL</li>
-                <li>Select the agent you want to embed on your website</li>
-                <li>Click on the "API Keys" tab in the agent's interface</li>
-                <li>Click the "New API Key" button to generate a new key</li>
-                <li>Give your key a descriptive name (e.g., "Production Website")</li>
-                <li>Optionally configure allowed origins and rate limits</li>
-                <li>Copy the generated API key (starts with <code>af_</code>) - you won't be able to see it again</li>
-                <li>Paste the key into your widget configuration code</li>
-            </ol>
-        </div>
-
-        <div class="section">
-            <h2 class="section-title">
-                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                Security Best Practices
-            </h2>
-            <ul class="security-list">
-                <li>Only use API keys on domains you own and trust</li>
-                <li>Configure allowed origins in your API key settings to restrict usage to specific domains</li>
-                <li>Monitor your API usage regularly in the AgentForge dashboard</li>
-                <li>Set appropriate rate limits to prevent abuse</li>
-                <li>Rotate API keys periodically (e.g., every 90 days)</li>
-                <li>Immediately disable or delete API keys if compromised</li>
-                <li>Never commit API keys to public repositories</li>
-                <li>Use environment variables for API keys in your build process</li>
-            </ul>
-        </div>
-
-        <div class="section">
-            <h2 class="section-title">
-                <svg class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                </svg>
-                Additional Resources
-            </h2>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14 2 14 8 20 8"/>
-                            <line x1="16" y1="13" x2="8" y2="13"/>
-                            <line x1="16" y1="17" x2="8" y2="17"/>
-                            <polyline points="10 9 9 9 8 9"/>
-                        </svg>
-                        <h3>Documentation</h3>
-                    </div>
-                    <p>Full API documentation available at <code>/docs</code> on your AgentForge instance</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/>
-                            <path d="M9 18c-4.51 2-5-2-7-2"/>
-                        </svg>
-                        <h3>GitHub</h3>
-                    </div>
-                    <p>View source code, report issues, and contribute on GitHub</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-card-header">
-                        <svg class="feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                            <path d="M12 17h.01"/>
-                        </svg>
-                        <h3>Support</h3>
-                    </div>
-                    <p>Need help? Contact support or check community forums</p>
-                </div>
-            </div>
-        </div>
+    <div class="scroll-x">
+      <table>
+        <thead>
+          <tr><th>Property</th><th>Light</th><th>Dark</th><th>What it paints</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>--af-accent</code></td><td><span class="val">#0e6f7e</span></td><td><span class="val">#74b7c3</span></td><td>Launcher, send button, focus rings</td></tr>
+          <tr><td><code>--af-accent-fg</code></td><td><span class="val">#ffffff</span></td><td><span class="val">#0c0b0a</span></td><td>Text on top of the accent</td></tr>
+          <tr><td><code>--af-surface</code></td><td><span class="val">#ffffff</span></td><td><span class="val">#171614</span></td><td>Header, composer, agent bubbles</td></tr>
+          <tr><td><code>--af-ground</code></td><td><span class="val">#fcfcfb</span></td><td><span class="val">#0c0b0a</span></td><td>The message log behind the bubbles</td></tr>
+          <tr><td><code>--af-text</code></td><td><span class="val">#1a1817</span></td><td><span class="val">#faf9f7</span></td><td>Body text</td></tr>
+          <tr><td><code>--af-muted</code></td><td><span class="val">#75706b</span></td><td><span class="val">#a29d96</span></td><td>Subtitle, sources, hints</td></tr>
+          <tr><td><code>--af-border</code></td><td><span class="val">#e6e4e0</span></td><td><span class="val">#2e2b28</span></td><td>Every hairline</td></tr>
+          <tr><td><code>--af-user-bg</code></td><td><span class="val">#f5f4f2</span></td><td><span class="val">#211f1d</span></td><td>The visitor's own messages</td></tr>
+          <tr><td><code>--af-radius</code></td><td colspan="2"><span class="val">10px</span></td><td>Panel corners</td></tr>
+          <tr><td><code>--af-radius-sm</code></td><td colspan="2"><span class="val">6px</span></td><td>Bubbles, inputs, buttons</td></tr>
+          <tr><td><code>--af-font</code></td><td colspan="2"><span class="val">inherit</span></td><td>Type stack — inherits your page by default</td></tr>
+          <tr><td><code>--af-font-mono</code></td><td colspan="2"><span class="val">ui-monospace, …</span></td><td>Source citations</td></tr>
+          <tr><td><code>--af-width</code></td><td colspan="2"><span class="val">380px</span></td><td>Panel width, capped to the viewport</td></tr>
+          <tr><td><code>--af-height</code></td><td colspan="2"><span class="val">560px</span></td><td>Panel height, capped to the viewport</td></tr>
+          <tr><td><code>--af-shadow</code></td><td colspan="2"><span class="val">two layers</span></td><td>The panel's and launcher's elevation</td></tr>
+        </tbody>
+      </table>
     </div>
 
-    <div class="footer">
-        <p>Built with ❤️ by the AgentForge team | <a href="https://github.com/4n0nn43x/agent-forge">View on GitHub</a></p>
-    </div>
+    <h3 style="margin-top:2.5rem">Also exposed</h3>
+    <p>
+      <code>::part(launcher)</code>, <code>::part(panel)</code> and <code>::part(log)</code>
+      are pierceable from your stylesheet if a token is not enough. And the runtime methods:
+      <code>AgentForge.setTokens({…})</code>, <code>.setTheme('dark')</code>,
+      <code>.open()</code>, <code>.close()</code>, <code>.resetConversation()</code>,
+      <code>.destroy()</code>.
+    </p>
+  </div>
+</section>
 
-    <!-- Demo Widget -->
-    <script src="/agentforge-widget.js"></script>
-    <script>
-        // Copy button functionality
-        function copyCode(button) {
-            const codeBlock = button.closest('.code-block');
-            const code = codeBlock.querySelector('pre').textContent;
+<footer>
+  <div class="shell">
+    <span>AgentForge — build a retrieval-grounded chat agent from your own documents.</span>
+    <a href="https://github.com/4n0nn43x/agent-forge">github.com/4n0nn43x/agent-forge</a>
+  </div>
+</footer>
 
-            navigator.clipboard.writeText(code).then(() => {
-                const originalText = button.innerHTML;
-                button.innerHTML = `
-                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                    Copied!
-                `;
-                button.style.background = '#10B981';
+<script src="agentforge-widget.js"></script>
+<script>
+(function () {
+  'use strict';
 
-                setTimeout(() => {
-                    button.innerHTML = originalText;
-                    button.style.background = '';
-                }, 2000);
-            });
-        }
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        // Uncomment to activate demo widget
-        // AgentForge.init({
-        //     apiKey: 'af_demo_key',
-        //     apiUrl: 'http://localhost:8000/api/v1/public',
-        //     position: 'bottom-right',
-        //     primaryColor: '#3B82F6',
-        //     title: 'AgentForge Demo',
-        //     subtitle: 'Try me out!',
-        //     welcomeMessage: 'Hi! 👋 I\'m a demo chatbot. How can I help you today?'
-        // });
-    </script>
+  AgentForge.init({
+    // Placeholder credentials: this page never reaches a server. The scripted run
+    // below drives the widget's own public methods instead of faking a response.
+    apiKey: 'af_demo_page_not_connected',
+    apiUrl: 'https://example.invalid/api/v1/public',
+    name: 'Support',
+    subtitle: 'Answers from the product handbook',
+    theme: 'auto'
+  });
+
+  var host = document.querySelector('agentforge-widget');
+
+  /* ---------------------------------------------------------------- scripted */
+
+  var SCRIPT = [
+    { role: 'user', text: 'Can I use my own domain for the API?' },
+    {
+      role: 'assistant',
+      text: 'Yes. Point your domain at the container on port 3000 and set CORS_ORIGINS to that origin. The widget calls /api/v1/public, so nothing else changes.'
+    }
+  ];
+
+  var running = false;
+  var wait = function (ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, reduced ? 0 : ms); });
+  };
+
+  function typeInto(text) {
+    var input = host.shadowRoot.querySelector('textarea');
+    if (reduced) { input.value = text; return Promise.resolve(); }
+    input.value = '';
+    var i = 0;
+    return new Promise(function (resolve) {
+      var tick = setInterval(function () {
+        input.value = text.slice(0, ++i);
+        input.dispatchEvent(new Event('input'));
+        if (i >= text.length) { clearInterval(tick); resolve(); }
+      }, 26);
+    });
+  }
+
+  async function play() {
+    if (running) return;
+    running = true;
+    var button = document.getElementById('play');
+    button.disabled = true;
+    button.textContent = 'Playing…';
+
+    AgentForge.resetConversation();
+    if (AgentForge.isOpen) AgentForge.close();
+    await wait(500);
+
+    // One attention beat, then the sequence carries itself.
+    host.setAttribute('data-nudge', '');
+    await wait(750);
+    host.removeAttribute('data-nudge');
+
+    AgentForge.open();
+    await wait(450);
+
+    await typeInto(SCRIPT[0].text);
+    await wait(320);
+
+    host.shadowRoot.querySelector('textarea').value = '';
+    AgentForge.sizeComposer();
+    AgentForge.addMessage('user', SCRIPT[0].text);
+
+    AgentForge.typing(true);
+    await wait(1500);
+    AgentForge.typing(false);
+    AgentForge.addMessage('assistant', SCRIPT[1].text);
+
+    button.disabled = false;
+    button.textContent = 'Play it again';
+    running = false;
+  }
+
+  document.getElementById('play').addEventListener('click', play);
+  document.getElementById('clear').addEventListener('click', function () {
+    AgentForge.resetConversation();
+  });
+
+  /* ----------------------------------------------------------------- theming */
+
+  var state = {
+    accent: '#0e6f7e',
+    radius: '10px',
+    width: '380px',
+    font: 'inherit'
+  };
+
+  function renderCss() {
+    var lines = ['agentforge-widget {'];
+    Object.keys(state).forEach(function (key) {
+      if (key === 'font' && state.font === 'inherit') return;
+      lines.push('  --af-' + key + ': ' + state[key] + ';');
+    });
+    lines.push('}');
+    document.getElementById('css-out').textContent = lines.join('\n');
+  }
+
+  function apply(patch) {
+    Object.assign(state, patch);
+    AgentForge.setTokens(patch);
+    renderCss();
+  }
+
+  var accent = document.getElementById('t-accent');
+  var accentHex = document.getElementById('t-accent-hex');
+  accent.addEventListener('input', function () {
+    accentHex.value = accent.value;
+    // Keep the label on the accent readable as the hue moves.
+    apply({ accent: accent.value, 'accent-fg': readableOn(accent.value) });
+  });
+  accentHex.addEventListener('change', function () {
+    if (!/^#[0-9a-f]{6}$/i.test(accentHex.value.trim())) return;
+    accent.value = accentHex.value.trim();
+    accent.dispatchEvent(new Event('input'));
+  });
+
+  function readableOn(hex) {
+    var r = parseInt(hex.slice(1, 3), 16) / 255;
+    var g = parseInt(hex.slice(3, 5), 16) / 255;
+    var b = parseInt(hex.slice(5, 7), 16) / 255;
+    var lin = function (c) { return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    var L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    // Compare contrast against white and against near-black, take the winner.
+    return (1.05 / (L + 0.05)) >= ((L + 0.05) / 0.05) ? '#ffffff' : '#0c0b0a';
+  }
+
+  document.getElementById('t-theme').addEventListener('change', function (event) {
+    AgentForge.setTheme(event.target.value);
+  });
+
+  var radius = document.getElementById('t-radius');
+  radius.addEventListener('input', function () {
+    var value = radius.value + 'px';
+    document.getElementById('t-radius-out').textContent = value;
+    apply({ radius: value });
+  });
+
+  var width = document.getElementById('t-width');
+  width.addEventListener('input', function () {
+    var value = width.value + 'px';
+    document.getElementById('t-width-out').textContent = value;
+    apply({ width: value });
+  });
+
+  document.getElementById('t-font').addEventListener('change', function (event) {
+    apply({ font: event.target.value });
+  });
+
+  document.getElementById('t-position').addEventListener('change', function (event) {
+    host.setAttribute('data-position', event.target.value);
+    host.style.left = event.target.value === 'bottom-left' ? '20px' : '';
+    host.style.right = event.target.value === 'bottom-left' ? '' : '20px';
+  });
+
+  /* -------------------------------------------------------------------- copy */
+
+  document.querySelectorAll('[data-copy]').forEach(function (button) {
+    button.addEventListener('click', async function () {
+      var source = document.querySelector(button.getAttribute('data-copy'));
+      try {
+        await navigator.clipboard.writeText(source.innerText);
+        var was = button.textContent;
+        button.textContent = 'Copied';
+        setTimeout(function () { button.textContent = was; }, 1400);
+      } catch (e) {
+        button.textContent = 'Press ⌘C';
+      }
+    });
+  });
+
+  renderCss();
+})();
+</script>
 </body>
 </html>

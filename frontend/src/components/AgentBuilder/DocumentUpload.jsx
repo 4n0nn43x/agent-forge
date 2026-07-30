@@ -74,10 +74,10 @@ const DocumentUpload = ({ agentId, onSkip }) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-semibold text-ink mb-2">
           Upload Documents
         </h2>
-        <p className="text-gray-600">
+        <p className="text-muted">
           Add documents to your agent's knowledge base (optional)
         </p>
       </div>
@@ -99,7 +99,7 @@ const DocumentUpload = ({ agentId, onSkip }) => {
 
       {/* Upload Area */}
       {agentId && (
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary-400 transition-colors">
+        <div className="border border-dashed border-rule rounded-md p-8 text-center hover:border-primary-400 hover:bg-subtle transition-colors">
           <input
             type="file"
             id="file-upload"
@@ -113,11 +113,11 @@ const DocumentUpload = ({ agentId, onSkip }) => {
             htmlFor="file-upload"
             className="cursor-pointer flex flex-col items-center"
           >
-            <Upload className="w-12 h-12 text-gray-400 mb-4" />
-            <p className="text-sm font-medium text-gray-900 mb-1">
+            <Upload className="w-12 h-12 text-faint mb-4" />
+            <p className="text-sm font-medium text-ink mb-1">
               Click to upload or drag and drop
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted">
               PDF, TXT, MD, or DOCX (max 10MB per file)
             </p>
           </label>
@@ -132,10 +132,10 @@ const DocumentUpload = ({ agentId, onSkip }) => {
               <Loader2 className="w-4 h-4 animate-spin text-primary-600" />
               <div className="flex-1">
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-gray-700">{filename}</span>
-                  <span className="text-gray-500">{progress}%</span>
+                  <span className="text-ink-soft">{filename}</span>
+                  <span className="text-muted">{progress}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div className="w-full bg-rule rounded-full h-1.5">
                   <div
                     className="bg-primary-600 h-1.5 rounded-full transition-all"
                     style={{ width: `${progress}%` }}
@@ -150,27 +150,27 @@ const DocumentUpload = ({ agentId, onSkip }) => {
       {/* Uploaded Documents */}
       {documents.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-900 mb-3">
+          <h3 className="text-sm font-medium text-ink mb-3">
             Uploaded Documents ({documents.length})
           </h3>
           <div className="space-y-2">
             {documents.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-subtle rounded-md"
               >
                 <div className="flex items-center space-x-3">
-                  <File className="w-5 h-5 text-gray-400" />
+                  <File className="w-5 h-5 text-faint" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-ink">
                       {doc.filename}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted">
                       {formatFileSize(doc.file_size)} • {doc.chunk_count} chunks
                     </p>
                   </div>
                 </div>
-                <CheckCircle className="w-5 h-5 text-green-500" />
+                <CheckCircle className="w-5 h-5 text-ready" />
               </div>
             ))}
           </div>
@@ -178,11 +178,11 @@ const DocumentUpload = ({ agentId, onSkip }) => {
       )}
 
       {/* Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-blue-900 mb-2">
+      <div className="bg-primary-50 border border-primary-200 rounded-md p-4">
+        <h4 className="text-sm font-medium text-primary-800 mb-2">
           How does this work?
         </h4>
-        <ul className="text-sm text-blue-800 space-y-1">
+        <ul className="text-sm text-primary-800 space-y-1">
           <li>• Documents are processed and split into chunks</li>
           <li>• Each chunk is stored in a vector database</li>
           <li>• When users ask questions, relevant chunks are retrieved</li>

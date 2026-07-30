@@ -7,30 +7,30 @@ const AdvancedConfig = ({ formData, updateFormData }) => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-semibold text-ink mb-2">
           Advanced Configuration
         </h2>
-        <p className="text-gray-600">
+        <p className="text-muted">
           Fine-tune your agent's behavior (optional)
         </p>
       </div>
 
       {/* Collapsible Advanced Settings */}
-      <div className="border border-gray-200 rounded-lg">
+      <div className="border border-rule rounded-md">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full p-4 flex items-center justify-between hover:bg-gray-50"
+          className="w-full p-4 flex items-center justify-between hover:bg-subtle"
         >
-          <span className="font-medium text-gray-900">Advanced Settings</span>
+          <span className="font-medium text-ink">Advanced Settings</span>
           {showAdvanced ? (
-            <ChevronUp className="w-5 h-5 text-gray-500" />
+            <ChevronUp className="w-5 h-5 text-muted" />
           ) : (
-            <ChevronDown className="w-5 h-5 text-gray-500" />
+            <ChevronDown className="w-5 h-5 text-muted" />
           )}
         </button>
 
         {showAdvanced && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
+          <div className="p-4 border-t border-rule space-y-4">
             {/* Custom System Prompt */}
             <div>
               <label className="label">Custom System Prompt</label>
@@ -41,7 +41,7 @@ const AdvancedConfig = ({ formData, updateFormData }) => {
                 className="input resize-none"
                 rows={8}
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted">
                 Leave empty to use the template's default prompt
               </p>
             </div>
@@ -62,7 +62,7 @@ const AdvancedConfig = ({ formData, updateFormData }) => {
                 }
                 className="w-full"
               />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <div className="flex justify-between text-xs text-muted mt-1">
                 <span>More focused</span>
                 <span>More creative</span>
               </div>
@@ -82,7 +82,7 @@ const AdvancedConfig = ({ formData, updateFormData }) => {
                 }
                 className="input"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted">
                 Maximum length of agent responses
               </p>
             </div>
@@ -97,7 +97,7 @@ const AdvancedConfig = ({ formData, updateFormData }) => {
                 className="input resize-none"
                 rows={3}
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted">
                 Additional instructions or restrictions for the agent
               </p>
             </div>
@@ -106,45 +106,45 @@ const AdvancedConfig = ({ formData, updateFormData }) => {
       </div>
 
       {/* Summary */}
-      <div className="bg-gray-50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <div className="bg-subtle rounded-md p-6">
+        <h3 className="text-lg font-semibold text-ink mb-4">
           Configuration Summary
         </h3>
         <dl className="space-y-3">
           <div className="flex justify-between">
-            <dt className="text-sm text-gray-600">Agent Name:</dt>
-            <dd className="text-sm font-medium text-gray-900">
+            <dt className="text-sm text-muted">Agent Name:</dt>
+            <dd className="text-sm font-medium text-ink">
               {formData.name || 'Not set'}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sm text-gray-600">Model:</dt>
-            <dd className="text-sm font-medium text-gray-900">
+            <dt className="text-sm text-muted">Model:</dt>
+            <dd className="text-sm font-medium text-ink">
               {formData.llm_model}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sm text-gray-600">Personality:</dt>
-            <dd className="text-sm font-medium text-gray-900 capitalize">
+            <dt className="text-sm text-muted">Personality:</dt>
+            <dd className="text-sm font-medium text-ink capitalize">
               {formData.personality}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sm text-gray-600">Temperature:</dt>
-            <dd className="text-sm font-medium text-gray-900">
+            <dt className="text-sm text-muted">Temperature:</dt>
+            <dd className="text-sm font-medium text-ink">
               {formData.temperature}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sm text-gray-600">Max Tokens:</dt>
-            <dd className="text-sm font-medium text-gray-900">
+            <dt className="text-sm text-muted">Max Tokens:</dt>
+            <dd className="text-sm font-medium text-ink">
               {formData.max_tokens}
             </dd>
           </div>
         </dl>
       </div>
 
-      <div className="text-center text-sm text-gray-600">
+      <div className="text-center text-sm text-muted">
         Click "Finish & Start Chatting" to begin using your agent!
       </div>
     </div>

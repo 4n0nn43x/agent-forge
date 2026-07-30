@@ -140,20 +140,20 @@ const ChatInterface = () => {
   return (
     <div className="max-w-6xl mx-auto h-full flex flex-col p-4">
       {/* Header - Fixed */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 flex-shrink-0">
+      <div className="bg-surface rounded-md border border-rule p-4 mb-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
               onClick={() => navigate('/')}
-              className="p-2 hover:bg-gray-100 rounded-lg"
+              className="p-2 hover:bg-subtle rounded-md"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-semibold text-ink">
                 {currentAgent.name}
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted">
                 {currentAgent.description || `Chat with ${currentAgent.name}`}
               </p>
             </div>
@@ -184,14 +184,14 @@ const ChatInterface = () => {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 flex-shrink-0">
-        <div className="flex border-b border-gray-200">
+      <div className="bg-surface rounded-md border border-rule mb-4 flex-shrink-0">
+        <div className="flex border-b border-rule">
           <button
             onClick={() => setActiveTab('chat')}
             className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
               activeTab === 'chat'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-muted hover:text-ink hover:border-rule'
             }`}
           >
             <MessageSquare className="w-4 h-4" />
@@ -201,8 +201,8 @@ const ChatInterface = () => {
             onClick={() => setActiveTab('docs')}
             className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
               activeTab === 'docs'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-muted hover:text-ink hover:border-rule'
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -212,8 +212,8 @@ const ChatInterface = () => {
             onClick={() => setActiveTab('api-keys')}
             className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
               activeTab === 'api-keys'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-muted hover:text-ink hover:border-rule'
             }`}
           >
             <Key className="w-4 h-4" />
@@ -223,8 +223,8 @@ const ChatInterface = () => {
             onClick={() => setActiveTab('webhooks')}
             className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
               activeTab === 'webhooks'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-muted hover:text-ink hover:border-rule'
             }`}
           >
             <Webhook className="w-4 h-4" />
@@ -234,8 +234,8 @@ const ChatInterface = () => {
             onClick={() => setActiveTab('widget')}
             className={`flex items-center space-x-2 px-6 py-3 font-medium border-b-2 transition-colors ${
               activeTab === 'widget'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                ? 'border-primary-600 text-primary-600'
+                : 'border-transparent text-muted hover:text-ink hover:border-rule'
             }`}
           >
             <Code2 className="w-4 h-4" />
@@ -272,23 +272,39 @@ const ChatInterface = () => {
               )}
 
               {/* Messages Container */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex-1 flex flex-col min-h-0">
+              <div className="bg-surface rounded-md border border-rule flex-1 flex flex-col min-h-0">
                 {/* Messages - Scrollable */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto thin-scroll p-6 space-y-6">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full">
                       <LoadingSpinner size="lg" text="Loading conversation..." />
                     </div>
                   ) : messages.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-center">
-                      <div>
-                        <div className="text-6xl mb-4">💬</div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                          Start a conversation
+                    // An empty screen is an invitation to act, so it states what
+                    // this agent can actually do right now rather than greeting.
+                    <div className="h-full flex items-center px-1">
+                      <div className="max-w-prose">
+                        <h3 className="text-base font-semibold text-ink">
+                          {currentAgent.document_count > 0
+                            ? 'Ask about your documents'
+                            : 'No documents indexed yet'}
                         </h3>
-                        <p className="text-gray-600 max-w-sm">
-                          Ask me anything! I'll use the knowledge base to provide
-                          accurate answers.
+                        <p className="mt-1.5 text-sm text-muted">
+                          {currentAgent.document_count > 0 ? (
+                            <>
+                              Answers are drawn from{' '}
+                              <span className="tnum">{currentAgent.document_count}</span>{' '}
+                              indexed{' '}
+                              {currentAgent.document_count === 1 ? 'document' : 'documents'},
+                              and each one shows the passages it used.
+                            </>
+                          ) : (
+                            <>
+                              This agent will answer from its own knowledge until you add
+                              documents. Upload some under Documents to ground its answers
+                              in your material.
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -299,7 +315,7 @@ const ChatInterface = () => {
                       ))}
                       {sending && (
                         <div className="flex justify-start">
-                          <div className="bg-gray-100 rounded-lg px-4 py-3">
+                          <div className="bg-subtle rounded-md px-4 py-3">
                             <LoadingSpinner size="sm" />
                           </div>
                         </div>
@@ -310,7 +326,7 @@ const ChatInterface = () => {
                 </div>
 
                 {/* Input Area - Fixed */}
-                <div className="border-t border-gray-200 p-4 flex-shrink-0">
+                <div className="border-t border-rule p-4 flex-shrink-0">
                   <div className="flex space-x-3">
                     <textarea
                       ref={inputRef}
@@ -330,7 +346,7 @@ const ChatInterface = () => {
                       <Send className="w-5 h-5" />
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-muted mt-2">
                     Press Enter to send, Shift+Enter for new line
                   </p>
                 </div>
@@ -340,28 +356,28 @@ const ChatInterface = () => {
 
           {/* Documents Tab */}
           {activeTab === 'docs' && (
-            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+            <div className="flex-1 overflow-y-auto thin-scroll min-h-0 p-4">
               <DocumentPanel agentId={parseInt(agentId)} />
             </div>
           )}
 
           {/* API Keys Tab */}
           {activeTab === 'api-keys' && (
-            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+            <div className="flex-1 overflow-y-auto thin-scroll min-h-0 p-4">
               <APIKeyManager agentId={parseInt(agentId)} />
             </div>
           )}
 
           {/* Webhooks Tab */}
           {activeTab === 'webhooks' && (
-            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+            <div className="flex-1 overflow-y-auto thin-scroll min-h-0 p-4">
               <WebhookManager agentId={parseInt(agentId)} />
             </div>
           )}
 
           {/* Widget Tab */}
           {activeTab === 'widget' && (
-            <div className="flex-1 overflow-y-auto min-h-0 p-4">
+            <div className="flex-1 overflow-y-auto thin-scroll min-h-0 p-4">
               <WidgetCode agentId={parseInt(agentId)} agentName={currentAgent.name} />
             </div>
           )}

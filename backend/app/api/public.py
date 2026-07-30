@@ -153,15 +153,21 @@ async def public_chat(
             config=config,
         )
 
+        # Webhooks still carry the sources: they go to the operator's own systems.
         queue_chat_webhooks(
             background_tasks, agent.id, message_data.message, result, source="widget"
         )
 
+        # Source citations name internal documents and carry retrieval scores.
+        # That is useful on the operator's dashboard and revealing to an anonymous
+        # visitor, so the public response omits them unless explicitly enabled.
+        # Hiding them only in the widget would be cosmetic — the filenames would
+        # still be sitting in the JSON for anyone with a network tab.
         return ChatResponse(
             response=result["response"],
             conversation_id=result["conversation_id"],
             tokens_used=result.get("tokens_used"),
-            sources=result.get("sources"),
+            sources=result.get("sources") if config.public_api_expose_sources else None,
         )
 
     except HTTPException:

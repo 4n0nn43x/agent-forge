@@ -148,14 +148,14 @@ const AgentBuilder = () => {
                       ? 'bg-primary-600 text-white'
                       : idx === step
                       ? 'bg-primary-600 text-white'
-                      : 'bg-gray-200 text-gray-600'
+                      : 'bg-rule text-muted'
                   }`}
                 >
                   {idx < step ? <Check className="w-5 h-5" /> : idx + 1}
                 </div>
                 <span
                   className={`ml-2 text-sm font-medium ${
-                    idx <= step ? 'text-gray-900' : 'text-gray-500'
+                    idx <= step ? 'text-ink' : 'text-muted'
                   }`}
                 >
                   {s.name}
@@ -164,7 +164,7 @@ const AgentBuilder = () => {
               {idx < steps.length - 1 && (
                 <div
                   className={`flex-1 h-1 mx-4 ${
-                    idx < step ? 'bg-primary-600' : 'bg-gray-200'
+                    idx < step ? 'bg-primary-600' : 'bg-rule'
                   }`}
                 />
               )}

@@ -1,5 +1,10 @@
 import axios from 'axios';
 
+// Trailing slashes only belong on paths the backend actually declares with one
+// (the collection routes, "/"). Anywhere else FastAPI answers 307 to the
+// slash-less form, which costs a round trip and — behind a proxy that drops the
+// port from the Host header — sends the browser somewhere that isn't listening.
+
 // In production (Docker), VITE_API_URL will be undefined/empty
 // This makes axios use relative paths (e.g., /api/agents/)
 // which nginx will proxy to the backend
@@ -82,10 +87,10 @@ export const createAPIKey = (agentId, keyData) =>
 export const getAPIKeys = (agentId) => api.get(`/api/agents/${agentId}/api-keys/`);
 
 export const deleteAPIKey = (agentId, keyId) =>
-  api.delete(`/api/agents/${agentId}/api-keys/${keyId}/`);
+  api.delete(`/api/agents/${agentId}/api-keys/${keyId}`);
 
 export const toggleAPIKey = (agentId, keyId) =>
-  api.patch(`/api/agents/${agentId}/api-keys/${keyId}/toggle/`);
+  api.patch(`/api/agents/${agentId}/api-keys/${keyId}/toggle`);
 
 // Webhooks
 export const getWebhooks = (agentId) => api.get(`/api/agents/${agentId}/webhooks/`);
@@ -94,19 +99,29 @@ export const createWebhook = (agentId, webhookData) =>
   api.post(`/api/agents/${agentId}/webhooks/`, webhookData);
 
 export const updateWebhook = (agentId, webhookId, webhookData) =>
-  api.put(`/api/agents/${agentId}/webhooks/${webhookId}/`, webhookData);
+  api.put(`/api/agents/${agentId}/webhooks/${webhookId}`, webhookData);
 
 export const deleteWebhook = (agentId, webhookId) =>
-  api.delete(`/api/agents/${agentId}/webhooks/${webhookId}/`);
+  api.delete(`/api/agents/${agentId}/webhooks/${webhookId}`);
 
 export const toggleWebhook = (agentId, webhookId) =>
-  api.patch(`/api/agents/${agentId}/webhooks/${webhookId}/toggle/`);
+  api.patch(`/api/agents/${agentId}/webhooks/${webhookId}/toggle`);
 
 export const testWebhook = (agentId, webhookId) =>
-  api.post(`/api/agents/${agentId}/webhooks/${webhookId}/test/`);
+  api.post(`/api/agents/${agentId}/webhooks/${webhookId}/test`);
 
 export const getWebhookLogs = (agentId, webhookId) =>
-  api.get(`/api/agents/${agentId}/webhooks/${webhookId}/logs/`);
+  api.get(`/api/agents/${agentId}/webhooks/${webhookId}/logs`);
+
+// Re-sends a past delivery with its original payload, for when the endpoint was
+// broken at the time and has since been fixed.
+export const replayWebhookLog = (agentId, webhookId, logId) =>
+  api.post(`/api/agents/${agentId}/webhooks/${webhookId}/logs/${logId}/replay`);
+
+// The subscribable events, each with the exact envelope it is delivered in,
+// plus the signature contract.
+export const getWebhookEvents = (agentId) =>
+  api.get(`/api/agents/${agentId}/webhooks/events/supported`);
 
 // Settings (stored in the database, edited in the UI)
 export const getSettings = () => api.get('/api/settings/');
@@ -114,6 +129,12 @@ export const getSettings = () => api.get('/api/settings/');
 export const updateSettings = (values) => api.put('/api/settings/', { values });
 
 export const testSettings = () => api.post('/api/settings/test');
+
+// First-run state: provider reachability, the model catalogue and whether any
+// agent exists, in one round trip so the first screen doesn't flicker.
+export const getOnboarding = () => api.get('/api/settings/onboarding');
+
+export const completeOnboarding = () => api.post('/api/settings/onboarding/complete');
 
 // Health check
 export const healthCheck = () => api.get('/health');

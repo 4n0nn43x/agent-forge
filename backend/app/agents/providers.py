@@ -24,17 +24,45 @@ OLLAMA = "ollama"
 
 _PREFIXES = {f"{OPENROUTER}:": OPENROUTER, f"{OLLAMA}:": OLLAMA}
 
-# Curated defaults surfaced in the agent builder. Ollama models are only usable
-# once they have been pulled locally, so the live tag list is merged on top of
-# this at runtime (see list_available_models).
+# Curated picks, in the order we would suggest trying them. `note` says why it is
+# on the list, so the choice in the agent builder is informed rather than a
+# wall of identical-looking ids.
 RECOMMENDED_OPENROUTER_MODELS = [
-    {"value": "anthropic/claude-sonnet-4.5", "label": "Claude Sonnet 4.5"},
-    {"value": "openai/gpt-4o", "label": "GPT-4o"},
-    {"value": "openai/gpt-4o-mini", "label": "GPT-4o mini"},
-    {"value": "google/gemini-2.0-flash-001", "label": "Gemini 2.0 Flash"},
-    {"value": "meta-llama/llama-3.3-70b-instruct", "label": "Llama 3.3 70B Instruct"},
-    {"value": "mistralai/mistral-large", "label": "Mistral Large"},
-    {"value": "deepseek/deepseek-chat", "label": "DeepSeek Chat"},
+    {
+        "value": "openai/gpt-4o-mini",
+        "label": "GPT-4o mini",
+        "note": "Cheapest sensible default. Start here.",
+    },
+    {
+        "value": "anthropic/claude-sonnet-4.5",
+        "label": "Claude Sonnet 4.5",
+        "note": "Best at following a long system prompt and staying in the documents.",
+    },
+    {
+        "value": "openai/gpt-4o",
+        "label": "GPT-4o",
+        "note": "Strong all-rounder when mini is not enough.",
+    },
+    {
+        "value": "google/gemini-2.0-flash-001",
+        "label": "Gemini 2.0 Flash",
+        "note": "Fast and cheap on long contexts.",
+    },
+    {
+        "value": "meta-llama/llama-3.3-70b-instruct",
+        "label": "Llama 3.3 70B Instruct",
+        "note": "Open weights, hosted — no local GPU needed.",
+    },
+    {
+        "value": "deepseek/deepseek-chat",
+        "label": "DeepSeek Chat",
+        "note": "Very low cost per token.",
+    },
+    {
+        "value": "mistralai/mistral-large",
+        "label": "Mistral Large",
+        "note": "European hosting if that matters to you.",
+    },
 ]
 
 RECOMMENDED_OLLAMA_MODELS = [
@@ -142,6 +170,55 @@ async def list_ollama_models(config) -> List[Dict[str, Any]]:
     return models
 
 
+async def list_openrouter_models(config) -> List[Dict[str, Any]]:
+    """Fetch OpenRouter's live catalogue. Returns [] without a key or on failure."""
+    if not config.openrouter_api_key:
+        return []
+
+    import aiohttp
+
+    url = f"{config.openrouter_base_url.rstrip('/')}/models"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                headers={"Authorization": f"Bearer {config.openrouter_api_key}"},
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as resp:
+                if resp.status != 200:
+                    logger.debug(f"OpenRouter /models returned HTTP {resp.status}")
+                    return []
+                data = await resp.json()
+    except Exception as e:
+        logger.debug(f"Could not fetch the OpenRouter catalogue: {e}")
+        return []
+
+    models = []
+    for entry in data.get("data", []):
+        model_id = entry.get("id")
+        if not model_id:
+            continue
+        pricing = entry.get("pricing") or {}
+        models.append(
+            {
+                "value": model_id,
+                "label": entry.get("name") or model_id,
+                # Per-million-token prompt price, which is how people compare them.
+                "prompt_price": _per_million(pricing.get("prompt")),
+                "context": entry.get("context_length"),
+            }
+        )
+    return models
+
+
+def _per_million(price: Any) -> Any:
+    """OpenRouter quotes per-token prices as strings; per million is readable."""
+    try:
+        return round(float(price) * 1_000_000, 3)
+    except (TypeError, ValueError):
+        return None
+
+
 async def check_openrouter(config) -> Dict[str, Any]:
     """Validate the OpenRouter credentials without spending tokens."""
     if not config.openrouter_api_key:
@@ -194,10 +271,16 @@ async def check_ollama(config) -> Dict[str, Any]:
 
 
 async def list_available_models(config) -> Dict[str, Any]:
-    """Model catalogue for the agent builder."""
+    """Model catalogue for the agent builder.
+
+    Recommended models come first and carry a `note` saying why; the rest of
+    OpenRouter's live catalogue follows so a specific model can still be picked.
+    """
     ollama_installed = await list_ollama_models(config)
     installed_names = {m["value"] for m in ollama_installed}
 
+    # Installed tags first — they are the ones that can actually run — then the
+    # suggestions to pull.
     ollama_models = ollama_installed + [
         {**m, "installed": False}
         for m in RECOMMENDED_OLLAMA_MODELS
@@ -205,12 +288,30 @@ async def list_available_models(config) -> Dict[str, Any]:
         and f"{m['value']}:latest" not in installed_names
     ]
 
+    live = await list_openrouter_models(config)
+    live_by_id = {m["value"]: m for m in live}
+    recommended_ids = {m["value"] for m in RECOMMENDED_OPENROUTER_MODELS}
+
+    openrouter_models = [
+        # Keep the curated label and note, take price and context from the live entry.
+        {**live_by_id.get(pick["value"], {}), **pick, "recommended": True}
+        for pick in RECOMMENDED_OPENROUTER_MODELS
+    ]
+    openrouter_models += [
+        {**model, "recommended": False}
+        for model in sorted(live, key=lambda m: m["value"])
+        if model["value"] not in recommended_ids
+    ]
+
     return {
         "providers": {
             OPENROUTER: {
                 "label": "OpenRouter",
                 "configured": bool(config.openrouter_api_key),
-                "models": RECOMMENDED_OPENROUTER_MODELS,
+                # True when the live catalogue answered, so the UI can say whether
+                # it is showing everything or only the curated picks.
+                "live": bool(live),
+                "models": openrouter_models,
             },
             OLLAMA: {
                 "label": "Ollama (local)",

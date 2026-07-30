@@ -1,121 +1,81 @@
-# 🤖 AgentForge
+<p align="center">
+  <img src="frontend/public/logo.svg" width="56" alt="">
+</p>
 
-**No-Code AI Agent Builder** - Create powerful conversational AI agents in minutes, not hours.
+<h1 align="center">AgentForge</h1>
 
-Built for the [NodeOps Proof of Build Hackathon](https://nodeops.xyz) (October 2025)
+<p align="center">
+  Turn your documents into a chat agent, then put it anywhere.<br>
+  No-code builder, REST API, and an embeddable widget — self-hosted, one container.
+</p>
 
----
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#embeddable-widget">Widget</a> ·
+  <a href="#api-documentation">API</a> ·
+  <a href="#webhook-integrations">Webhooks</a>
+</p>
 
-## 📖 Overview
-
-**AgentForge** is a comprehensive, modern platform that empowers anyone to create, deploy, and integrate custom conversational AI agents without writing a single line of code. Whether you're a business looking to automate customer support, a developer wanting to integrate AI into your application, or a team building an internal knowledge assistant, AgentForge has you covered.
-
-### 🎯 What is AgentForge?
-
-AgentForge transforms your documents and data into intelligent AI agents capable of answering questions, providing support, and conversing naturally with your users. The platform uses **RAG (Retrieval-Augmented Generation)** to ensure your agents provide accurate responses based on your specific content, not just general knowledge.
-
-### 🔑 Core Features
-
-#### 1. **Intuitive No-Code Interface** 🎨
-- **3-step creation wizard**: Choose a template, configure your agent, upload documents
-- **Centralized dashboard**: Manage all your agents from a modern interface
-- **Ready-to-use templates**: Customer support, technical documentation, lead qualification, general assistant
-- **Advanced configuration**: Customize system prompts, temperature, tokens, and guardrails
-
-#### 2. **Powerful RAG System** 📚
-- **Document upload**: Support for PDF, TXT, MD, DOCX files
-- **Automatic processing**: Your documents are automatically chunked, indexed, and vectorized
-- **Semantic search**: ChromaDB for fast and relevant retrieval
-- **Source citations**: Every response includes the sources used for transparency
-- **Dynamic knowledge base**: Add or remove documents at any time
-
-#### 3. **Multi-LLM Support** 🔌
-- **OpenRouter**: one API key, hundreds of hosted models (`openai/gpt-4o`, `anthropic/claude-sonnet-4.5`, `meta-llama/…`, …)
-- **Ollama**: run models locally, no key and no per-token cost (`llama3.2`, `qwen2.5`, `mistral`, …)
-- **Automatic routing**: the provider is inferred from the model id — namespaced (`vendor/model`) means OpenRouter, a plain tag means Ollama
-- **Behavior customization**: Adjust temperature, max_tokens, and personality
-
-#### 4. **Modern Chat Interface** 💬
-- **Real-time chat**: Responsive and fluid interface
-- **Conversation history**: All conversations are saved and searchable
-- **Cited sources**: See which documents were used for each response
-- **Multi-conversations**: Create and manage multiple conversations per agent
-- **Smart filtering**: Separates platform conversations from widget/API conversations
-
-#### 5. **Public REST API** 🔑
-- **API Key authentication**: Secured with Bearer tokens
-- **Rate limiting**: Control usage with configurable limits
-- **Key management**: Create, activate, deactivate, and delete API keys
-- **Allowed origins**: Configure CORS to restrict access to specific domains
-- **Usage tracking**: Monitor the last usage of each key
-- **OpenAPI documentation**: Interactive API docs at `/docs`
-
-#### 6. **Embeddable Widget** 🎨
-- **2-line integration**: Add a chatbot to any website
-- **100% customizable**: Colors, position, texts, avatar
-- **Responsive**: Works on mobile and desktop
-- **Persistent conversations**: History saved across page reloads
-- **Welcome message**: Greet your visitors with a custom message
-- **Zero dependencies**: Pure vanilla JavaScript
-- **Secure**: API key authentication with CORS support
-
-#### 7. **History & Traceability** 📊
-- **Automatic saving**: All conversations are recorded
-- **Source separation**: Widget conversations don't clutter your platform interface
-- **Timestamped messages**: Precise timestamp for each message
-- **Token counting**: Track your usage and costs
-- **Easy retrieval**: API to list and retrieve conversations
-
-#### 8. **Security & Control** 🔒
-- **Secure API Keys**: `af_` prefix with 32-character random token
-- **Configured CORS**: Protection against unauthorized access
-- **Rate limiting**: Abuse prevention with per-hour limits
-- **Quick deactivation**: Toggle on/off for compromised keys
-- **Permanent deletion**: Remove keys you no longer need
-
-#### 9. **Webhook Integrations** 🔗
-- **Event-driven automation**: Trigger external services on agent events
-- **5 supported events**: message.sent, conversation.started, conversation.ended, document.uploaded, agent.updated
-- **Secure payloads**: HMAC-SHA256 signature verification for webhook security
-- **Intelligent retry logic**: Automatic retries with exponential backoff (up to 10 attempts)
-- **Delivery tracking**: Complete logs of all webhook deliveries with success/failure status
-- **Test mode**: Send test payloads to verify your webhook endpoints
-- **Popular integrations**: Works with Slack, Discord, Zapier, Make, n8n, or any custom HTTP endpoint
-- **Flexible configuration**: Custom headers, retry counts, and event filtering per webhook
-
-#### 10. **Easy Deployment** 🐳
-- **Docker Compose**: Start with a single command
-- **Environment variables**: Centralized configuration via `.env`
-- **Health checks**: Built-in service health monitoring
-- **Persistent volumes**: Your data survives restarts
-- **Structured logs**: Simplified debugging and monitoring
-- **Production-ready**: Designed for NodeOps deployment
-
-### 💡 Use Cases
-
-AgentForge is perfect for:
-
-- ✅ **24/7 Customer Support**: Instantly answer frequently asked questions with your FAQs
-- ✅ **Documentation Assistant**: Help developers navigate your technical documentation
-- ✅ **Lead Qualification**: Engage and qualify visitors before routing them to sales
-- ✅ **Internal Knowledge Base**: AI assistant for your team with access to all internal documents
-- ✅ **E-commerce Assistant**: Help customers find products and answer their questions
-- ✅ **Educational Tutor**: Create specialized learning assistants by subject
-- ✅ **Automated Onboarding**: Guide new users with an interactive assistant
-- ✅ **HR Assistant**: Answer employee questions about policies and benefits
-
-### 🏆 Why Choose AgentForge?
-
-- **Speed**: From idea to working agent in 5 minutes
-- **Flexibility**: Use as web platform, REST API, or embedded widget
-- **Scalability**: Docker architecture ready for production
-- **Transparency**: Open-source code, no vendor lock-in
-- **Cost-effective**: Use your own LLM API keys, control your costs
-- **Modern**: Latest tech stack (React 18, FastAPI, LangChain)
+![The agent dashboard](docs/screenshots/dashboard.png)
 
 ---
 
-## 🚀 Quick Start
+## What it is
+
+You upload documents. AgentForge chunks and indexes them, then answers questions
+against them instead of against the model's general knowledge — retrieval-augmented
+generation, without writing any of it yourself.
+
+Every answer shows the passages it came from, so you can tell whether it actually
+read your material or improvised.
+
+![A conversation, with the token count and the passages behind the answer](docs/screenshots/chat.png)
+
+Three ways to use an agent once it exists:
+
+| | |
+|---|---|
+| **In the app** | The chat above, with conversation history and document management |
+| **Over HTTP** | A public REST API, scoped by API keys with an origin allowlist and hourly rate limit |
+| **On your site** | A widget in one script tag, style-isolated and themed by CSS custom properties |
+
+Two providers, and no others: **OpenRouter** for hosted models, **Ollama** for local
+ones. The provider is inferred from the model id, so `openai/gpt-4o` and `llama3.2`
+both just work.
+
+## Setup takes one screen
+
+First run walks the two decisions that gate a working install, checks them live, and
+gets out of the way. No hunting through a settings page.
+
+![First-run setup](docs/screenshots/onboarding.png)
+
+API keys, endpoints, model names and upload limits are stored in the database and
+edited in the UI — not in `.env`. Secrets are encrypted at rest. An empty `.env` is a
+valid `.env`.
+
+## Events go where you need them
+
+Webhooks post a signed JSON body when something happens. Every delivery keeps the
+exact request body and the endpoint's response, so a failure tells you what went
+wrong instead of just showing a status code — and you can replay it once you've fixed
+your end.
+
+![Webhook deliveries, with the request body and the response](docs/screenshots/webhooks.png)
+
+## The widget adapts to the host page
+
+It renders inside a shadow root: your CSS can't reach into it and its CSS can't leak
+onto your page. Appearance is a contract of CSS custom properties you set from your own
+stylesheet.
+
+![Live theming of the embeddable widget](docs/screenshots/widget-theming.png)
+
+Try it at `/widget-demo.html` on your own instance.
+
+---
+
+## Quick Start
 
 ### Prerequisites
 
@@ -198,7 +158,7 @@ worker count.
 
 ---
 
-## 📚 Usage Guide
+## Usage Guide
 
 ### Creating Your First Agent
 
@@ -210,22 +170,21 @@ worker count.
 
 2. **Configure Basic Settings**
    - Agent name and description
-   - Choose your LLM (GPT-4, Claude, etc.)
+   - Pick a model — recommended ones are listed first, with a note on why
    - Set personality (Professional, Friendly, Technical)
 
 3. **Upload Documents** (Optional)
    - PDF, TXT, MD, or DOCX files
-   - Documents are automatically processed and indexed
-   - Agent uses these for accurate, sourced responses
+   - Chunked and indexed automatically; needs Ollama for the embeddings
+   - Answers then cite the passages they came from
 
 4. **Advanced Settings** (Optional)
    - Custom system prompts
    - Temperature and token limits
    - Guardrails and limitations
 
-5. **Start Chatting!**
-   - Test your agent immediately
-   - Iterate and improve based on responses
+5. **Start chatting**
+   - Test it immediately, then iterate on the prompt
 
 ### Managing Agents
 
@@ -237,7 +196,7 @@ worker count.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────┐
@@ -285,7 +244,7 @@ worker count.
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Settings (in the UI, at `/settings`)
 
@@ -344,13 +303,13 @@ lived in ChromaDB, so it cannot be re-embedded automatically.
 
 ---
 
-## 📦 API Documentation
+## API Documentation
 
 AgentForge provides two API interfaces:
 
 ### 1. **Internal API** (Dashboard & Agent Management)
 
-Once running, visit http://localhost:8000/docs for interactive API documentation.
+Once running, visit http://localhost:3000/docs for interactive API documentation.
 
 #### Key Endpoints
 
@@ -379,7 +338,7 @@ GET  /api/agents/{id}/api-keys       # List API keys
 DELETE /api/agents/{id}/api-keys/{key_id}  # Delete API key
 PATCH /api/agents/{id}/api-keys/{key_id}/toggle  # Enable/disable key
 
-# Webhooks (New!)
+# Webhooks
 POST /api/agents/{id}/webhooks       # Create webhook
 GET  /api/agents/{id}/webhooks       # List webhooks
 GET  /api/agents/{id}/webhooks/{webhook_id}  # Get webhook details
@@ -391,7 +350,7 @@ GET  /api/agents/{id}/webhooks/{webhook_id}/logs  # View delivery logs
 GET  /api/agents/webhooks/events/supported  # List supported events
 ```
 
-### 2. **Public API** (External Integrations) ✨ NEW!
+### 2. **Public API** (External Integrations)
 
 Use the Public API to integrate your agents into websites, mobile apps, or other services.
 
@@ -416,7 +375,7 @@ GET  /api/v1/public/agent            # Get agent info
 #### Example: Send a Message
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/public/chat" \
+curl -X POST "http://localhost:3000/api/v1/public/chat" \
   -H "Authorization: Bearer af_xxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -443,7 +402,7 @@ curl -X POST "http://localhost:8000/api/v1/public/chat" \
 
 ---
 
-## 🎨 Embeddable Widget ✨ NEW!
+## Embeddable Widget
 
 Turn your agent into a chat widget that can be embedded on any website!
 
@@ -453,47 +412,94 @@ Turn your agent into a chat widget that can be embedded on any website!
 2. **Add this code** to your website (before `</body>`):
 
 ```html
-<!-- AgentForge Widget -->
+<!-- before </body> -->
 <script src="https://your-domain.com/agentforge-widget.js"></script>
 <script>
   AgentForge.init({
     apiKey: 'af_xxxxxxxxxxxxx',
-    apiUrl: 'https://your-api.com/api/v1/public',
-    position: 'bottom-right',
-    primaryColor: '#3B82F6',
-    title: 'Chat with us!',
-    subtitle: 'We typically reply in a few minutes'
+    apiUrl: 'https://your-api.com/api/v1/public'
   });
 </script>
 ```
 
-### Configuration Options
+### Configuration
 
 ```javascript
 AgentForge.init({
   // Required
-  apiKey: 'af_xxxxxxxxxxxxx',      // Your API key
+  apiKey: 'af_xxxxxxxxxxxxx',
   apiUrl: 'https://api.example.com/api/v1/public',
 
-  // Optional - Appearance
-  position: 'bottom-right',         // 'bottom-right' or 'bottom-left'
-  primaryColor: '#3B82F6',          // Brand color (hex)
-  title: 'Chat with us!',           // Widget title
-  subtitle: 'We\'re here to help',  // Widget subtitle
-  placeholder: 'Type a message...', // Input placeholder
-  avatar: 'https://...',            // Avatar URL (optional)
-  zIndex: 9999                      // CSS z-index
+  name: 'Support',                  // launcher label and panel title
+  subtitle: '',                     // optional line under the name
+  placeholder: 'Ask a question',
+  welcomeMessage: '',               // empty uses the built-in empty state
+  avatar: 'https://…',              // optional image
+
+  position: 'bottom-right',         // or 'bottom-left'
+  theme: 'auto',                    // 'auto' | 'light' | 'dark'
+  openOnLoad: false,
+  zIndex: 2147483000,
+
+  tokens: { accent: '#0e6f7e' }     // any token below, minus the --af- prefix
 });
 ```
 
-### Features
+### Theming
 
-- ✅ **Lightweight** - Pure vanilla JavaScript, no dependencies
-- ✅ **Responsive** - Works on mobile and desktop
-- ✅ **Customizable** - Match your brand colors and style
-- ✅ **Persistent** - Conversation continues across page reloads
-- ✅ **Easy Integration** - Just 2 lines of code
-- ✅ **Secure** - API key authentication with CORS support
+The widget renders inside a **shadow root**: your CSS cannot reach into it, and its
+CSS cannot leak onto your page. Appearance is a contract of CSS custom properties
+you set on the element — from your own stylesheet, with no JavaScript:
+
+```css
+agentforge-widget {
+  --af-accent: #6d28d9;
+  --af-radius: 2px;
+  --af-font: inherit;   /* the default: adopt your page's type stack */
+}
+```
+
+| Property | Paints |
+|---|---|
+| `--af-accent` / `--af-accent-fg` | Launcher, send button, focus rings, and the text on them |
+| `--af-surface` / `--af-ground` | Header and bubbles / the message log behind them |
+| `--af-text` / `--af-muted` | Body text / subtitle, sources, hints |
+| `--af-border` | Every hairline |
+| `--af-user-bg` | The visitor's own messages |
+| `--af-radius` / `--af-radius-sm` | Panel corners / bubbles, inputs, buttons |
+| `--af-font` / `--af-font-mono` | Type stack / source citations |
+| `--af-width` / `--af-height` | Panel size, both capped to the viewport |
+| `--af-shadow` | The panel's and launcher's elevation |
+
+#### Source citations are off by default
+
+A retrieval score means nothing to a visitor, and a filename can reveal more than
+you intend — `handbook.pdf` is harmless, `layoffs-2026.docx` is not. So the public
+chat response omits `sources` entirely unless you enable **Return source citations
+on the public API** in Settings, and the widget only draws them with
+`showSources: true`.
+
+The server-side switch is the one that matters: hiding them in the widget alone
+would be cosmetic, since the filenames would still sit in the JSON for anyone who
+opens their browser's network tab. Your own dashboard always shows them, with the
+relevance scores — that is where they belong.
+
+Each colour token has a light and a dark value; `theme: 'auto'` follows the
+visitor's OS and keeps following it if they change it. `::part(launcher)`,
+`::part(panel)` and `::part(log)` are pierceable when a token isn't enough, and
+`AgentForge.setTokens({…})` / `.setTheme('dark')` change things at runtime.
+
+> **Upgrading?** `primaryColor` and `title` still work — they map onto
+> `tokens.accent` and `name`. Nothing to change unless you want the new tokens.
+
+### What it gives you
+
+- Pure vanilla JavaScript, no dependencies, ~14 kB
+- Style-isolated in both directions, so it cannot break your page or be broken by it
+- Light, dark, or follow-the-OS, with `prefers-reduced-motion` respected
+- The conversation survives page reloads
+- Answers cite the passages they came from
+- API keys are scoped by origin allowlist and hourly rate limit, both enforced server-side
 
 ### Widget Demo
 
@@ -519,12 +525,12 @@ Visit `/widget-demo.html` for a live demo and more examples.
 
 ---
 
-## 🔑 API Key Management
+## API Key Management
 
 ### Creating an API Key
 
 ```bash
-curl -X POST "http://localhost:8000/api/agents/1/api-keys" \
+curl -X POST "http://localhost:3000/api/agents/1/api-keys" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Production Website",
@@ -564,7 +570,7 @@ PATCH /api/agents/{agent_id}/api-keys/{key_id}/toggle
 
 ---
 
-## 🔗 Webhook Integrations
+## Webhook Integrations
 
 Connect your agents to external services and automate workflows with webhooks. Get real-time notifications when important events occur.
 
@@ -586,9 +592,17 @@ AgentForge triggers webhooks for these events:
 |-------|-------------|----------------|
 | `message.sent` | User sends a message and gets a response | After agent responds to a message |
 | `conversation.started` | A new conversation begins | First message in a conversation |
-| `conversation.ended` | A conversation is closed | Conversation is marked as ended |
 | `document.uploaded` | A document is added to the knowledge base | Document is successfully processed |
 | `agent.updated` | Agent configuration changes | Agent settings are modified |
+
+`GET /api/agents/{id}/webhooks/events/supported` returns this list together with a
+full sample envelope for each event and the signature contract — the same data the
+dashboard renders, so you never have to guess the JSON shape.
+
+Every event listed is one the server actually emits. A fifth,
+`conversation.ended`, used to be advertised and offered in the dashboard but could
+never fire: nothing marks a conversation as ended, so it was removed rather than
+left as a checkbox that delivers nothing.
 
 ### Creating a Webhook
 
@@ -607,7 +621,7 @@ AgentForge triggers webhooks for these events:
 #### Via API
 
 ```bash
-curl -X POST "http://localhost:8000/api/agents/1/webhooks" \
+curl -X POST "http://localhost:3000/api/agents/1/webhooks" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Slack Notifications",
@@ -710,7 +724,7 @@ Send agent conversations to a Slack channel:
 # Create a Slack incoming webhook: https://api.slack.com/messaging/webhooks
 # Then create an AgentForge webhook:
 
-curl -X POST "http://localhost:8000/api/agents/1/webhooks" \
+curl -X POST "http://localhost:3000/api/agents/1/webhooks" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Slack - Customer Support",
@@ -728,7 +742,7 @@ curl -X POST "http://localhost:8000/api/agents/1/webhooks" \
 # Get Discord webhook URL from Server Settings → Integrations → Webhooks
 # Create AgentForge webhook:
 
-curl -X POST "http://localhost:8000/api/agents/1/webhooks" \
+curl -X POST "http://localhost:3000/api/agents/1/webhooks" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Discord Alerts",
@@ -872,7 +886,7 @@ if __name__ == '__main__':
 **Via API:**
 ```bash
 # Get delivery logs for a webhook
-curl -X GET "http://localhost:8000/api/agents/1/webhooks/123/logs" \
+curl -X GET "http://localhost:3000/api/agents/1/webhooks/123/logs" \
   -H "Content-Type: application/json"
 ```
 
@@ -911,7 +925,7 @@ Before going live, test your webhook endpoint:
 
 **Via API:**
 ```bash
-curl -X POST "http://localhost:8000/api/agents/1/webhooks/123/test" \
+curl -X POST "http://localhost:3000/api/agents/1/webhooks/123/test" \
   -H "Content-Type: application/json"
 ```
 
@@ -964,7 +978,7 @@ curl -X POST "http://localhost:8000/api/agents/1/webhooks/123/test" \
 
 ---
 
-## 🧪 Development
+## Development
 
 ### Local Development (without Docker)
 
@@ -1012,7 +1026,7 @@ agentforge/
 
 ---
 
-## 🚢 Deployment
+## Deployment
 
 ### NodeOps Deployment
 
@@ -1042,7 +1056,7 @@ docker-compose down
 
 ---
 
-## 💡 Use Cases & Examples
+## Use Cases & Examples
 
 ### 1. **Customer Support Chatbot**
 
@@ -1050,7 +1064,7 @@ Create a support agent with your FAQ and documentation:
 
 ```bash
 # Step 1: Create the agent
-curl -X POST "http://localhost:8000/api/agents/" \
+curl -X POST "http://localhost:3000/api/agents/" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Support Bot",
@@ -1061,11 +1075,11 @@ curl -X POST "http://localhost:8000/api/agents/" \
   }'
 
 # Step 2: Upload your documentation
-curl -X POST "http://localhost:8000/api/agents/1/documents" \
+curl -X POST "http://localhost:3000/api/agents/1/documents" \
   -F "file=@faq.pdf"
 
 # Step 3: Generate API key
-curl -X POST "http://localhost:8000/api/agents/1/api-keys" \
+curl -X POST "http://localhost:3000/api/agents/1/api-keys" \
   -H "Content-Type: application/json" \
   -d '{"name": "Website Widget"}'
 
@@ -1081,7 +1095,7 @@ Build a private AI assistant for your team:
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1/public',
+  baseURL: 'http://localhost:3000/api/v1/public',
   headers: {
     'Authorization': 'Bearer af_xxxxxxxxxxxxx'
   }
@@ -1105,7 +1119,7 @@ Qualify leads automatically before routing to sales:
 import requests
 
 API_KEY = "af_xxxxxxxxxxxxx"
-API_URL = "http://localhost:8000/api/v1/public"
+API_URL = "http://localhost:3000/api/v1/public"
 
 def qualify_lead(visitor_message):
     response = requests.post(
@@ -1134,7 +1148,7 @@ export default {
     return {
       messages: [],
       apiKey: 'af_xxxxxxxxxxxxx',
-      apiUrl: 'http://localhost:8000/api/v1/public'
+      apiUrl: 'http://localhost:3000/api/v1/public'
     }
   },
 
@@ -1175,14 +1189,14 @@ Build a subject-specific tutor:
 ```bash
 # Upload textbooks, course materials
 for file in course_materials/*.pdf; do
-  curl -X POST "http://localhost:8000/api/agents/1/documents" \
+  curl -X POST "http://localhost:3000/api/agents/1/documents" \
     -F "file=@$file"
 done
 ```
 
 ---
 
-## 📊 Integration Examples
+## Integration Examples
 
 ### JavaScript/TypeScript
 
@@ -1222,7 +1236,7 @@ class AgentForgeClient {
 }
 
 // Usage
-const client = new AgentForgeClient('af_xxxxx', 'http://localhost:8000/api/v1/public');
+const client = new AgentForgeClient('af_xxxxx', 'http://localhost:3000/api/v1/public');
 const result = await client.chat('Hello!');
 console.log(result.response);
 ```
@@ -1261,7 +1275,7 @@ class AgentForgeClient:
         return response.json()
 
 # Usage
-client = AgentForgeClient('af_xxxxx', 'http://localhost:8000/api/v1/public')
+client = AgentForgeClient('af_xxxxx', 'http://localhost:3000/api/v1/public')
 result = client.chat('What are your business hours?')
 print(result['response'])
 ```
@@ -1270,7 +1284,7 @@ print(result['response'])
 
 ```bash
 # Send a message
-curl -X POST "http://localhost:8000/api/v1/public/chat" \
+curl -X POST "http://localhost:3000/api/v1/public/chat" \
   -H "Authorization: Bearer af_xxxxxxxxxxxxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1279,44 +1293,43 @@ curl -X POST "http://localhost:8000/api/v1/public/chat" \
   }'
 
 # List conversations
-curl -X GET "http://localhost:8000/api/v1/public/conversations" \
+curl -X GET "http://localhost:3000/api/v1/public/conversations" \
   -H "Authorization: Bearer af_xxxxxxxxxxxxx"
 
 # Get conversation messages
-curl -X GET "http://localhost:8000/api/v1/public/conversations/uuid-here/messages" \
+curl -X GET "http://localhost:3000/api/v1/public/conversations/uuid-here/messages" \
   -H "Authorization: Bearer af_xxxxxxxxxxxxx"
 
 # Get agent info
-curl -X GET "http://localhost:8000/api/v1/public/agent" \
+curl -X GET "http://localhost:3000/api/v1/public/agent" \
   -H "Authorization: Bearer af_xxxxxxxxxxxxx"
 ```
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-This is a hackathon project, but contributions are welcome!
+Issues and pull requests are welcome. Two things worth knowing before you start:
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+- There is **no authentication** on the management API (`/api/agents/*`). Anyone who
+  can reach the instance can read conversations, create agents, and write provider
+  credentials. Treat it as single-user and keep it off the open internet until that
+  changes — it is the most useful thing anyone could contribute.
+- There is no test suite yet. If you touch the retrieval, webhook or settings paths,
+  say in the PR how you verified it.
 
 ---
 
-## 📝 License
+## License
 
 MIT License - See LICENSE file for details
 
 ---
 
-## 📞 Support
+## Support
 
-- **Issues**: [GitHub Issues](https://github.com/4n0nn43x/agent-forge/issues)
-- **Demo Video**: [Watch on YouTube](#)
+[GitHub Issues](https://github.com/4n0nn43x/agent-forge/issues)
 
 ---
 
-**Built with ❤️ for the DePin community**
-
-🚀 Create your first agent today!
+Winner of the [NodeOps Proof of Build Hackathon](https://nodeops.xyz), October 2025.

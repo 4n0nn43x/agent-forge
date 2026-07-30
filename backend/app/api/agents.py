@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.orm import noload
 from typing import List, Optional
 import logging
@@ -12,6 +12,12 @@ from ..dependencies import get_agent_manager, get_config
 from ..settings_store import RuntimeConfig
 from ..models import (
     Agent,
+    APIKey,
+    Conversation,
+    Document,
+    Message,
+    Webhook,
+    WebhookLog,
     AgentCreate,
     AgentUpdate,
     AgentResponse,
@@ -205,8 +211,26 @@ async def delete_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
 
     agent_name = agent.name
 
-    # Delete agent (cascade will handle documents and conversations)
-    await db.delete(agent)
+    # Delete the children explicitly, leaves first.
+    #
+    # The ORM cascades cannot fire here: the query above uses noload(), so the
+    # collections are never loaded, and an async session will not lazy-load them
+    # during flush either. The result was a bare DELETE FROM agents, which used to
+    # "succeed" only because SQLite ignored foreign keys — leaving orphan rows
+    # behind — and started failing outright once the pragma was enabled.
+    #
+    # Doing it in statements also keeps the cost flat: an agent with 50k messages
+    # is seven queries, not 50k objects loaded into memory.
+    conversation_ids = select(Conversation.id).where(Conversation.agent_id == agent_id)
+    webhook_ids = select(Webhook.id).where(Webhook.agent_id == agent_id)
+
+    await db.execute(delete(WebhookLog).where(WebhookLog.webhook_id.in_(webhook_ids)))
+    await db.execute(delete(Webhook).where(Webhook.agent_id == agent_id))
+    await db.execute(delete(APIKey).where(APIKey.agent_id == agent_id))
+    await db.execute(delete(Message).where(Message.conversation_id.in_(conversation_ids)))
+    await db.execute(delete(Conversation).where(Conversation.agent_id == agent_id))
+    await db.execute(delete(Document).where(Document.agent_id == agent_id))
+    await db.execute(delete(Agent).where(Agent.id == agent_id))
     await db.commit()
 
     # The SQL cascade doesn't reach ChromaDB; drop the collection too, otherwise
@@ -259,8 +283,6 @@ async def duplicate_agent(agent_id: int, new_name: str, db: AsyncSession = Depen
 # Helper function
 async def get_agent_response(agent: Agent, db: AsyncSession) -> AgentResponse:
     """Build AgentResponse with counts"""
-    from ..models import Document, Conversation
-
     # Get document count
     doc_count_result = await db.execute(
         select(func.count(Document.id)).where(Document.agent_id == agent.id)

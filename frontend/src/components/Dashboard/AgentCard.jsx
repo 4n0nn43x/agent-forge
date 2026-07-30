@@ -1,129 +1,147 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, FileText, Trash2, Copy, MoreVertical } from 'lucide-react';
+import { MessageSquare, FileText, Trash2, Copy, MoreHorizontal } from 'lucide-react';
 import useAgentStore from '../../store/agentStore';
+
+// "openai/gpt-4o-mini" -> vendor and model shown separately, so the eye can scan
+// the provider without reading the whole id.
+const splitModel = (id = '') => {
+  const slash = id.indexOf('/');
+  return slash === -1
+    ? { vendor: 'ollama', model: id }
+    : { vendor: id.slice(0, slash), model: id.slice(slash + 1) };
+};
 
 const AgentCard = ({ agent }) => {
   const navigate = useNavigate();
   const { deleteAgent, duplicateAgent } = useAgentStore();
   const [showMenu, setShowMenu] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const menuRef = useRef(null);
 
-  const handleDelete = async (e) => {
-    e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete "${agent.name}"?`)) {
-      setIsDeleting(true);
-      try {
-        await deleteAgent(agent.id);
-      } catch (error) {
-        alert('Failed to delete agent');
-        setIsDeleting(false);
-      }
+  // A menu that only closes on its own trigger feels stuck.
+  useEffect(() => {
+    if (!showMenu) return;
+    const onDocumentClick = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) setShowMenu(false);
+    };
+    const onEscape = (event) => event.key === 'Escape' && setShowMenu(false);
+    document.addEventListener('mousedown', onDocumentClick);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onDocumentClick);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [showMenu]);
+
+  const handleDelete = async (event) => {
+    event.stopPropagation();
+    if (!window.confirm(`Delete "${agent.name}"? Its documents and conversations go with it.`)) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteAgent(agent.id);
+    } catch (error) {
+      window.alert('Could not delete the agent. It is still there.');
+      setIsDeleting(false);
     }
   };
 
-  const handleDuplicate = async (e) => {
-    e.stopPropagation();
-    const newName = prompt('Enter name for duplicated agent:', `${agent.name} (Copy)`);
-    if (newName) {
-      try {
-        await duplicateAgent(agent.id, newName);
-        setShowMenu(false);
-      } catch (error) {
-        alert('Failed to duplicate agent');
-      }
+  const handleDuplicate = async (event) => {
+    event.stopPropagation();
+    const newName = window.prompt('Name for the copy', `${agent.name} copy`);
+    if (!newName) return;
+    try {
+      await duplicateAgent(agent.id, newName);
+      setShowMenu(false);
+    } catch (error) {
+      window.alert('Could not duplicate the agent.');
     }
   };
 
-  const handleChat = (e) => {
-    e.stopPropagation();
-    navigate(`/agent/${agent.id}`);
-  };
+  const openChat = () => navigate(`/agent/${agent.id}`);
+  const { vendor, model } = splitModel(agent.llm_model);
 
   return (
     <div
-      className="card hover:shadow-md transition-shadow cursor-pointer relative"
-      onClick={handleChat}
+      role="link"
+      tabIndex={0}
+      onClick={openChat}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openChat();
+        }
+      }}
+      className="card-interactive group relative flex flex-col gap-4 cursor-pointer"
     >
-      {/* Menu Button */}
-      <div className="absolute top-4 right-4">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowMenu(!showMenu);
-          }}
-          className="p-2 hover:bg-gray-100 rounded-lg"
-        >
-          <MoreVertical className="w-5 h-5 text-gray-500" />
-        </button>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-ink truncate">{agent.name}</h3>
+          <p className="mt-1 text-sm text-muted line-clamp-2">
+            {agent.description || 'No description'}
+          </p>
+        </div>
 
-        {/* Dropdown Menu */}
-        {showMenu && (
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
-            <button
-              onClick={handleDuplicate}
-              className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-            >
-              <Copy className="w-4 h-4" />
-              <span>Duplicate</span>
-            </button>
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
-            </button>
-          </div>
+        <div className="relative flex-shrink-0" ref={menuRef}>
+          <button
+            type="button"
+            aria-label={`Actions for ${agent.name}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+            className="btn btn-ghost w-8 h-8 px-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+
+          {showMenu && (
+            <div className="absolute right-0 mt-1 w-44 panel py-1 z-10">
+              <button
+                type="button"
+                onClick={handleDuplicate}
+                className="w-full px-3 py-1.5 text-left text-sm text-ink-soft hover:bg-subtle flex items-center gap-2"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Duplicate
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="w-full px-3 py-1.5 text-left text-sm text-danger hover:bg-danger-bg flex items-center gap-2"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {isDeleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* The model id is a value the system holds, so it gets the value treatment. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="val-accent">
+          <span className="opacity-60">{vendor}/</span>
+          {model}
+        </span>
+        {agent.template_name && (
+          <span className="pill-neutral">{agent.template_name.replace(/_/g, ' ')}</span>
         )}
       </div>
 
-      {/* Agent Info */}
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2 pr-8">
-          {agent.name}
-        </h3>
-        <p className="text-sm text-gray-600 line-clamp-2">
-          {agent.description || 'No description'}
-        </p>
+      <div className="mt-auto pt-3 divider flex items-center gap-5 text-xs text-muted">
+        <span className="inline-flex items-center gap-1.5 tnum">
+          <FileText className="w-3.5 h-3.5" />
+          {agent.document_count} {agent.document_count === 1 ? 'document' : 'documents'}
+        </span>
+        <span className="inline-flex items-center gap-1.5 tnum">
+          <MessageSquare className="w-3.5 h-3.5" />
+          {agent.conversation_count} {agent.conversation_count === 1 ? 'chat' : 'chats'}
+        </span>
       </div>
-
-      {/* Template Badge */}
-      {agent.template_name && (
-        <div className="mb-3">
-          <span className="inline-block px-2 py-1 bg-primary-100 text-primary-700 text-xs font-medium rounded">
-            {agent.template_name.replace('_', ' ')}
-          </span>
-        </div>
-      )}
-
-      {/* Model */}
-      <div className="mb-4">
-        <span className="text-xs text-gray-500">Model: </span>
-        <span className="text-xs font-medium text-gray-700">{agent.llm_model}</span>
-      </div>
-
-      {/* Stats */}
-      <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-        <div className="flex items-center space-x-1">
-          <FileText className="w-4 h-4" />
-          <span>{agent.document_count} docs</span>
-        </div>
-        <div className="flex items-center space-x-1">
-          <MessageSquare className="w-4 h-4" />
-          <span>{agent.conversation_count} chats</span>
-        </div>
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={handleChat}
-        className="w-full btn btn-primary flex items-center justify-center space-x-2"
-      >
-        <MessageSquare className="w-4 h-4" />
-        <span>Chat with Agent</span>
-      </button>
     </div>
   );
 };

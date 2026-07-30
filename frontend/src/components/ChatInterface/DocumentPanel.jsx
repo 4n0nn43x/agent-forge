@@ -56,7 +56,7 @@ const DocumentPanel = ({ agentId }) => {
   return (
     <div>
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Documents</h3>
+        <h3 className="text-lg font-semibold text-ink mb-2">Documents</h3>
 
         {/* Upload Button */}
         <label
@@ -102,28 +102,28 @@ const DocumentPanel = ({ agentId }) => {
       <div className="space-y-2">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-faint" />
           </div>
         ) : documents.length === 0 ? (
-          <div className="text-center text-gray-500 text-sm py-8">
+          <div className="text-center text-muted text-sm py-8">
             No documents uploaded yet
           </div>
         ) : (
           documents.map((doc) => (
             <div
               key={doc.id}
-              className="p-3 bg-gray-50 rounded-lg border border-gray-200"
+              className="p-3 bg-subtle rounded-md border border-rule"
             >
               <div className="flex items-start space-x-2">
-                <File className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                <File className="w-4 h-4 text-faint flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
+                  <p className="text-sm font-medium text-ink truncate">
                     {doc.filename}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted mt-1">
                     {formatFileSize(doc.file_size)}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted">
                     {doc.chunk_count} chunks
                   </p>
                 </div>

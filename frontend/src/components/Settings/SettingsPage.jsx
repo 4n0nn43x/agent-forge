@@ -114,16 +114,16 @@ const SettingsPage = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-3xl font-semibold text-ink">Settings</h1>
+        <p className="text-muted mt-1">
           Provider credentials and endpoints live here, not in <code>.env</code>. Secrets are
           encrypted before being stored.
         </p>
       </div>
 
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start space-x-2">
-        <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-blue-900">
+      <div className="p-4 bg-primary-50 border border-primary-200 rounded-md flex items-start space-x-2">
+        <Info className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-primary-800">
           AgentForge talks to two providers: <strong>OpenRouter</strong> for hosted models and{' '}
           <strong>Ollama</strong> for local ones. OpenRouter has no embeddings endpoint, so
           document search always runs through Ollama — it is required even for an
@@ -133,10 +133,10 @@ const SettingsPage = () => {
 
       {feedback && (
         <div
-          className={`p-4 rounded-lg border flex items-start space-x-2 ${
+          className={`p-4 rounded-md border flex items-start space-x-2 ${
             feedback.type === 'success'
-              ? 'bg-green-50 border-green-200 text-green-900'
-              : 'bg-red-50 border-red-200 text-red-900'
+              ? 'bg-ready-bg border-ready/30 text-ready'
+              : 'bg-danger-bg border-danger/30 text-danger'
           }`}
         >
           {feedback.type === 'success' ? (
@@ -149,9 +149,9 @@ const SettingsPage = () => {
       )}
 
       {embeddingDirty && (
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start space-x-2">
-          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-900">
+        <div className="p-4 bg-warn-bg border border-warn/30 rounded-md flex items-start space-x-2">
+          <AlertTriangle className="w-5 h-5 text-warn flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-warn">
             You are changing the embedding model. Vector widths differ between models, so every
             already-indexed document becomes unreadable and will have to be re-uploaded.
           </p>
@@ -160,14 +160,14 @@ const SettingsPage = () => {
 
       {groups.map((group) => (
         <section key={group.name} className="card space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">{group.name}</h2>
+          <h2 className="text-lg font-semibold text-ink">{group.name}</h2>
 
           {group.settings.map((setting) => (
             <div key={setting.key}>
               <label className="label flex items-center justify-between">
                 <span>{setting.label}</span>
                 {setting.from_env && (
-                  <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                  <span className="text-xs font-normal text-muted bg-subtle px-2 py-0.5 rounded">
                     from environment
                   </span>
                 )}
@@ -179,9 +179,9 @@ const SettingsPage = () => {
                     type="checkbox"
                     checked={Boolean(currentValue(setting))}
                     onChange={(event) => setDraft(setting.key, event.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300"
+                    className="w-4 h-4 rounded border-rule"
                   />
-                  <span className="text-sm text-gray-700">Enabled</span>
+                  <span className="text-sm text-ink-soft">Enabled</span>
                 </label>
               ) : setting.kind === 'password' ? (
                 <div className="space-y-1">
@@ -206,7 +206,7 @@ const SettingsPage = () => {
                           [setting.key]: !previous[setting.key],
                         }))
                       }
-                      className="p-2 text-gray-500 hover:text-gray-700"
+                      className="p-2 text-muted hover:text-ink-soft"
                       title={revealed[setting.key] ? 'Hide' : 'Show what you typed'}
                     >
                       {revealed[setting.key] ? (
@@ -220,7 +220,7 @@ const SettingsPage = () => {
                     <button
                       type="button"
                       onClick={() => setDraft(setting.key, CLEAR_SENTINEL)}
-                      className="text-xs text-red-600 hover:text-red-700"
+                      className="text-xs text-danger hover:text-danger"
                     >
                       {drafts[setting.key] === CLEAR_SENTINEL
                         ? 'Will be removed on save'
@@ -246,18 +246,18 @@ const SettingsPage = () => {
               )}
 
               {setting.help && (
-                <p className="mt-1 text-xs text-gray-500">{setting.help}</p>
+                <p className="mt-1 text-xs text-muted">{setting.help}</p>
               )}
               {setting.warning && (
-                <p className="mt-1 text-xs text-amber-700">{setting.warning}</p>
+                <p className="mt-1 text-xs text-warn">{setting.warning}</p>
               )}
             </div>
           ))}
         </section>
       ))}
 
-      <div className="flex items-center justify-between sticky bottom-4 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-        <div className="text-sm text-gray-600">
+      <div className="flex items-center justify-between sticky bottom-4 bg-surface border border-rule rounded-md p-4">
+        <div className="text-sm text-muted">
           {dirtyKeys.length > 0
             ? `${dirtyKeys.length} unsaved change${dirtyKeys.length > 1 ? 's' : ''}`
             : `${allSettings.length} settings`}
@@ -299,7 +299,7 @@ const SettingsPage = () => {
 
       {testResult && (
         <section className="card space-y-3">
-          <h2 className="text-lg font-semibold text-gray-900">Connection test</h2>
+          <h2 className="text-lg font-semibold text-ink">Connection test</h2>
 
           {[
             { key: 'openrouter', label: 'OpenRouter' },
@@ -309,18 +309,18 @@ const SettingsPage = () => {
             return (
               <div key={key} className="flex items-start space-x-2">
                 {result.ok ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-ready flex-shrink-0 mt-0.5" />
                 ) : (
-                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <XCircle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
                 )}
                 <div className="text-sm">
-                  <span className="font-medium text-gray-900">{label}</span>
-                  <span className="text-gray-600"> — {result.detail}</span>
+                  <span className="font-medium text-ink">{label}</span>
+                  <span className="text-muted"> — {result.detail}</span>
                   {result.embedding_warning && (
-                    <p className="text-amber-700 mt-0.5">{result.embedding_warning}</p>
+                    <p className="text-warn mt-0.5">{result.embedding_warning}</p>
                   )}
                   {result.models?.length > 0 && (
-                    <p className="text-gray-500 mt-0.5 break-all">
+                    <p className="text-muted mt-0.5 break-all">
                       {result.models.join(', ')}
                     </p>
                   )}
@@ -330,10 +330,10 @@ const SettingsPage = () => {
           })}
 
           <div
-            className={`text-sm p-3 rounded-lg ${
+            className={`text-sm p-3 rounded-md ${
               testResult.rag_ready
-                ? 'bg-green-50 text-green-900'
-                : 'bg-amber-50 text-amber-900'
+                ? 'bg-ready-bg text-ready'
+                : 'bg-warn-bg text-warn'
             }`}
           >
             {testResult.rag_ready

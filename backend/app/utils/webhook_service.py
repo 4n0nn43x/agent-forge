@@ -27,16 +27,89 @@ class WebhookUrlError(ValueError):
 class WebhookService:
     """Service for managing and delivering webhooks"""
 
+    # Only events the code actually emits belong here. `conversation.ended` used
+    # to be listed and offered in the UI, but nothing ended a conversation —
+    # there is no ended_at or status on the model — so it could never fire.
+    # A checkbox that can never deliver is worse than an absent one.
     SUPPORTED_EVENTS = [
-        "message.sent",           # When a message is sent (user or assistant)
-        "conversation.started",   # When a new conversation is created
-        "conversation.ended",     # When a conversation is marked as ended
-        "document.uploaded",      # When a document is uploaded
-        "agent.updated",          # When agent configuration is updated
+        "message.sent",           # A user turn and the agent's reply
+        "conversation.started",   # A new conversation was created
+        "document.uploaded",      # A document was indexed
+        "agent.updated",          # Agent configuration changed
     ]
 
     # Delivered on demand from the "test" endpoint; not subscribable.
     TEST_EVENT = "test.webhook"
+
+    EVENT_DOCS = {
+        "message.sent": {
+            "label": "Message sent",
+            "description": "Fires once per exchange, after the agent has replied.",
+            "sample": {
+                "conversation_id": "6f1c3b6e-0b9a-4a5e-9c2f-8d7a1e4b5c60",
+                "user_message": "How do I rotate an API key?",
+                "assistant_response": "Open the agent, go to API Keys, then…",
+                "tokens_used": 412,
+                "sources": [
+                    {"filename": "handbook.pdf", "chunk_index": 7, "relevance_score": 0.82}
+                ],
+                "source": "widget",
+            },
+        },
+        "conversation.started": {
+            "label": "Conversation started",
+            "description": "Fires on the first message of a new conversation, before message.sent.",
+            "sample": {
+                "conversation_id": "6f1c3b6e-0b9a-4a5e-9c2f-8d7a1e4b5c60",
+                "source": "widget",
+            },
+        },
+        "document.uploaded": {
+            "label": "Document uploaded",
+            "description": "Fires once a document has been chunked and indexed.",
+            "sample": {
+                "document_id": 12,
+                "filename": "handbook.pdf",
+                "file_type": "pdf",
+                "file_size": 284913,
+                "chunk_count": 46,
+            },
+        },
+        "agent.updated": {
+            "label": "Agent updated",
+            "description": "Fires when an agent's configuration changes.",
+            "sample": {
+                "agent_id": 3,
+                "name": "Support Bot",
+                "updated_fields": ["max_tokens", "system_prompt"],
+            },
+        },
+    }
+
+    @staticmethod
+    def event_catalogue() -> List[Dict[str, Any]]:
+        """The events, with the exact envelope each one is delivered in.
+
+        Exposed so the UI can show the payload contract instead of leaving
+        integrators to guess the JSON shape.
+        """
+        catalogue = []
+        for event in WebhookService.SUPPORTED_EVENTS:
+            doc = WebhookService.EVENT_DOCS[event]
+            catalogue.append(
+                {
+                    "event": event,
+                    "label": doc["label"],
+                    "description": doc["description"],
+                    "sample": {
+                        "event": event,
+                        "timestamp": "2026-07-30T12:34:56.789012",
+                        "agent_id": 3,
+                        "data": doc["sample"],
+                    },
+                }
+            )
+        return catalogue
 
     @staticmethod
     def validate_url(url: str, allow_private: bool = None) -> str:

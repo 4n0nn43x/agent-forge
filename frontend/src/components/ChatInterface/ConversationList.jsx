@@ -48,14 +48,14 @@ const ConversationList = ({ agentId, currentConversationId, onSelectConversation
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full flex flex-col">
+    <div className="bg-surface rounded-md border border-rule h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex-shrink-0">
+      <div className="p-4 border-b border-rule flex-shrink-0">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Conversations</h3>
+          <h3 className="font-semibold text-ink">Conversations</h3>
           <button
             onClick={onNewChat}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-subtle rounded-md transition-colors"
             title="New conversation"
           >
             <Plus className="w-4 h-4" />
@@ -64,35 +64,43 @@ const ConversationList = ({ agentId, currentConversationId, onSelectConversation
       </div>
 
       {/* Conversation List */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="flex-1 overflow-y-auto thin-scroll min-h-0">
         {conversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6">
-            <MessageSquare className="w-12 h-12 text-gray-400 mb-3" />
-            <p className="text-gray-600 text-sm">No conversations yet</p>
-            <p className="text-gray-500 text-xs mt-1">Start chatting to see history</p>
+          <div className="p-4">
+            <p className="text-sm text-ink-soft">No conversations yet</p>
+            <p className="text-xs text-muted mt-1">
+              Each thread you start is saved here and can be reopened.
+            </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-rule">
             {conversations.map((conv) => (
               <button
                 key={conv.conversation_id}
                 onClick={() => onSelectConversation(conv.conversation_id)}
-                className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${
+                aria-current={currentConversationId === conv.conversation_id ? 'true' : undefined}
+                className={`w-full px-4 py-3 text-left transition-colors ${
                   currentConversationId === conv.conversation_id
-                    ? 'bg-blue-50 border-l-4 border-blue-500'
-                    : ''
+                    ? 'bg-subtle'
+                    : 'hover:bg-subtle'
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
+                    <p
+                      className={`text-sm truncate ${
+                        currentConversationId === conv.conversation_id
+                          ? 'font-medium text-ink'
+                          : 'text-ink-soft'
+                      }`}
+                    >
                       {conv.title || `Conversation ${conv.id}`}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {conv.message_count} messages
+                    <p className="text-xs text-muted mt-0.5 tnum">
+                      {conv.message_count} {conv.message_count === 1 ? 'message' : 'messages'}
                     </p>
                   </div>
-                  <span className="text-xs text-gray-400 ml-2 whitespace-nowrap">
+                  <span className="val-bare ml-2 whitespace-nowrap flex-shrink-0">
                     {formatDate(conv.updated_at)}
                   </span>
                 </div>

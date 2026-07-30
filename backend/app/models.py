@@ -29,9 +29,15 @@ class Agent(Base):
     created_at = Column(DateTime, default=utcnow)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
-    # Relationships
+    # Relationships.
+    # Every child needs an explicit cascade: with PRAGMA foreign_keys=ON, deleting
+    # an agent that still had API keys or webhooks failed outright. Without the
+    # pragma it "worked" and left orphan rows pointing at a dead agent — which is
+    # how a new agent could inherit the previous one's keys on id reuse.
     documents = relationship("Document", back_populates="agent", cascade="all, delete-orphan")
     conversations = relationship("Conversation", back_populates="agent", cascade="all, delete-orphan")
+    api_keys = relationship("APIKey", back_populates="agent", cascade="all, delete-orphan")
+    webhooks = relationship("Webhook", back_populates="agent", cascade="all, delete-orphan")
 
 
 class Document(Base):
@@ -98,7 +104,7 @@ class APIKey(Base):
     last_used_at = Column(DateTime, nullable=True)
 
     # Relationships
-    agent = relationship("Agent")
+    agent = relationship("Agent", back_populates="api_keys")
 
 
 class Webhook(Base):
@@ -118,7 +124,8 @@ class Webhook(Base):
     last_triggered_at = Column(DateTime, nullable=True)
 
     # Relationships
-    agent = relationship("Agent")
+    agent = relationship("Agent", back_populates="webhooks")
+    logs = relationship("WebhookLog", back_populates="webhook", cascade="all, delete-orphan")
 
 
 class Setting(Base):
@@ -150,7 +157,7 @@ class WebhookLog(Base):
     created_at = Column(DateTime, default=utcnow)
 
     # Relationships
-    webhook = relationship("Webhook")
+    webhook = relationship("Webhook", back_populates="logs")
 
 
 # Pydantic Schemas (for API requests/responses)
@@ -282,6 +289,16 @@ class APIKeyResponse(BaseModel):
         from_attributes = True
 
 
+class WebhookHealth(BaseModel):
+    """Recent delivery health for a webhook, computed from its logs."""
+    total: int = 0
+    failures: int = 0
+    consecutive_failures: int = 0
+    last_status_code: Optional[int] = None
+    last_delivery_at: Optional[datetime] = None
+    failing: bool = False
+
+
 class WebhookCreate(BaseModel):
     """Schema for creating a webhook"""
     name: str = Field(..., min_length=1, max_length=255)
@@ -312,22 +329,32 @@ class WebhookResponse(BaseModel):
     events: List[str]
     is_active: bool
     retry_count: int
+    has_secret: bool = False
     created_at: datetime
     last_triggered_at: Optional[datetime]
+    health: Optional[WebhookHealth] = None
 
     class Config:
         from_attributes = True
 
 
 class WebhookLogResponse(BaseModel):
-    """Schema for webhook log response"""
+    """Schema for webhook log response.
+
+    `payload` and `response_body` were stored on every delivery and then never
+    exposed, so a failure showed a status code and nothing else. They are the
+    whole point of a delivery log, so they are returned here.
+    """
     id: int
     webhook_id: int
     event_type: str
     status_code: Optional[int]
     success: bool
     error_message: Optional[str]
+    payload: Optional[str] = None
+    response_body: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+

@@ -44,6 +44,9 @@ class SettingDef:
     help: str = ""
     placeholder: str = ""
     warning: str = ""
+    # Internal state rather than something to configure; kept out of the
+    # Settings page so it doesn't read as a knob.
+    hidden: bool = False
 
 
 SETTING_DEFS: List[SettingDef] = [
@@ -135,6 +138,31 @@ SETTING_DEFS: List[SettingDef] = [
         help="Comma-separated. Only these four are actually parseable.",
     ),
     SettingDef(
+        key="public_api_expose_sources",
+        label="Return source citations on the public API",
+        kind="bool",
+        default=False,
+        env="PUBLIC_API_EXPOSE_SOURCES",
+        group="Widget & public API",
+        help=(
+            "Off by default. Source citations name your internal documents and carry "
+            "retrieval scores, which are useful to you but meaningless — and "
+            "potentially revealing — to an anonymous visitor."
+        ),
+        warning=(
+            "Turning this on puts document filenames in the public chat response, "
+            "visible to anyone who opens their browser's network tab."
+        ),
+    ),
+    SettingDef(
+        key="onboarding_completed",
+        label="First-run setup completed",
+        kind="bool",
+        default=False,
+        group="Internal",
+        hidden=True,
+    ),
+    SettingDef(
         key="allow_private_webhook_urls",
         label="Allow webhooks to private addresses",
         kind="bool",
@@ -184,7 +212,9 @@ class RuntimeConfig:
     default_llm_model: str = "openai/gpt-4o-mini"
     max_upload_size_mb: int = 10
     allowed_extensions: List[str] = field(default_factory=lambda: ["pdf", "txt", "md", "docx"])
+    public_api_expose_sources: bool = False
     allow_private_webhook_urls: bool = False
+    onboarding_completed: bool = False
 
     @property
     def max_upload_bytes(self) -> int:
@@ -268,6 +298,8 @@ class SettingsStore:
 
         described = []
         for definition in SETTING_DEFS:
+            if definition.hidden:
+                continue
             value = values.get(definition.key)
             is_secret = definition.key in SECRET_KEYS
             described.append(

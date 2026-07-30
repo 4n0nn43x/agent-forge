@@ -55,14 +55,14 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-semibold text-ink mb-2">
           Basic Configuration
         </h2>
-        <p className="text-gray-600">
+        <p className="text-muted">
           Configure your agent's basic settings
         </p>
         {selectedTemplate && templateData && (
-          <div className="mt-3 p-3 bg-primary-50 rounded-lg flex items-start space-x-2">
+          <div className="mt-3 p-3 bg-primary-50 rounded-md flex items-start space-x-2">
             <Info className="w-5 h-5 text-primary-600 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-primary-900">
               Using template: <strong>{templateData.name}</strong>. You can customize it below.
@@ -75,7 +75,7 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
         {/* Agent Name */}
         <div>
           <label className="label">
-            Agent Name <span className="text-red-500">*</span>
+            Agent Name <span className="text-danger">*</span>
           </label>
           <input
             type="text"
@@ -102,7 +102,7 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
         {/* LLM Model */}
         <div>
           <label className="label">
-            LLM Model <span className="text-red-500">*</span>
+            LLM Model <span className="text-danger">*</span>
           </label>
           <select
             value={formData.llm_model}
@@ -130,14 +130,14 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
               ))}
             </optgroup>
           </select>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted">
             OpenRouter models need an API key (set it in Settings). Ollama models must be
             pulled locally first (<code>ollama pull &lt;model&gt;</code>).
           </p>
           {noProviderReady && (
-            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start space-x-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-900">
+            <div className="mt-2 p-3 bg-warn-bg border border-warn/30 rounded-md flex items-start space-x-2">
+              <AlertTriangle className="w-4 h-4 text-warn flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-warn">
                 No provider is ready. Add an OpenRouter key or point at a running Ollama in{' '}
                 <Link to="/settings" className="underline font-medium">
                   Settings
@@ -158,14 +158,14 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
                 key={p.value}
                 type="button"
                 onClick={() => updateFormData('personality', p.value)}
-                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                className={`p-4 rounded-md border-2 text-left transition-all ${
                   formData.personality === p.value
                     ? 'border-primary-600 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    : 'border-rule hover:border-primary-300'
                 }`}
               >
-                <div className="font-medium text-gray-900">{p.label}</div>
-                <div className="text-xs text-gray-600 mt-1">{p.desc}</div>
+                <div className="font-medium text-ink">{p.label}</div>
+                <div className="text-xs text-muted mt-1">{p.desc}</div>
               </button>
             ))}
           </div>
@@ -182,7 +182,7 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
               className="input resize-none"
               rows={6}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted">
               Instructions that define how your agent behaves
             </p>
           </div>
