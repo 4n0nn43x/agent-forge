@@ -1,14 +1,15 @@
 """Public API endpoints for external integrations"""
 
-import os
-import uuid
 import logging
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Header, status
+from urllib.parse import urlparse
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from typing import Optional, List
 
 from ..database import get_db
+from ..dependencies import get_agent_manager, get_config
+from ..settings_store import RuntimeConfig
 from ..models import (
     Agent,
     APIKey,
@@ -19,30 +20,50 @@ from ..models import (
     ConversationResponse,
     MessageResponse,
 )
-from ..agents.agent_manager import AgentManager
-from ..utils.vector_store import VectorStore
-from ..agents.rag_engine import RAGEngine
-from ..utils.webhook_service import WebhookService
+from ..utils.rate_limit import get_limiter
+from ..utils.timeutils import utcnow
+from .chat import queue_chat_webhooks
 
 logger = logging.getLogger(__name__)
-
-# Initialize components (same as in chat.py)
-vector_store = VectorStore(
-    persist_directory=os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_data")
-)
-rag_engine = RAGEngine(
-    embedding_model=os.getenv("EMBEDDING_MODEL", "sentence-transformers")
-)
-agent_manager = AgentManager(vector_store=vector_store, rag_engine=rag_engine)
 
 router = APIRouter(prefix="/api/v1/public", tags=["Public API"])
 
 
+def _origin_allowed(allowed_origins: Optional[str], origin: Optional[str]) -> bool:
+    """Check a request Origin against the key's allowlist.
+
+    An empty allowlist means "any origin". Entries are compared on scheme+host
+    +port; a leading "*." matches subdomains.
+    """
+    entries = [o.strip() for o in (allowed_origins or "").split(",") if o.strip()]
+    if not entries or "*" in entries:
+        return True
+
+    # Non-browser clients (curl, servers) send no Origin header. The allowlist is
+    # a browser-side control, so we only enforce it when an Origin is present.
+    if not origin:
+        return True
+
+    request_host = urlparse(origin).netloc.lower() or origin.lower()
+
+    for entry in entries:
+        candidate = entry.lower()
+        candidate_host = urlparse(candidate).netloc or candidate
+        if candidate_host.startswith("*."):
+            if request_host == candidate_host[2:] or request_host.endswith(candidate_host[1:]):
+                return True
+        elif request_host == candidate_host:
+            return True
+
+    return False
+
+
 async def verify_api_key(
     authorization: Optional[str] = Header(None, description="Bearer <api_key>"),
+    origin: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db),
 ) -> tuple[Agent, APIKey]:
-    """Verify API key and return associated agent"""
+    """Verify API key, enforce its origin allowlist and rate limit."""
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -55,10 +76,9 @@ async def verify_api_key(
             detail="Invalid authorization header format. Use: Bearer <api_key>",
         )
 
-    api_key = authorization.replace("Bearer ", "")
+    api_key = authorization[len("Bearer "):].strip()
 
     # Find API key in database
-    from sqlalchemy import select
     result = await db.execute(select(APIKey).filter(APIKey.key == api_key))
     db_api_key = result.scalar_one_or_none()
 
@@ -74,8 +94,24 @@ async def verify_api_key(
             detail="API key is disabled",
         )
 
+    if not _origin_allowed(db_api_key.allowed_origins, origin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Origin '{origin}' is not allowed for this API key",
+        )
+
+    allowed, remaining, retry_after = await get_limiter().check(
+        db_api_key.id, db_api_key.rate_limit
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Rate limit of {db_api_key.rate_limit} requests/hour exceeded",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     # Update last used timestamp
-    db_api_key.last_used_at = datetime.utcnow()
+    db_api_key.last_used_at = utcnow()
     await db.commit()
 
     # Get agent
@@ -93,8 +129,10 @@ async def verify_api_key(
 @router.post("/chat", response_model=ChatResponse)
 async def public_chat(
     message_data: ChatMessage,
+    background_tasks: BackgroundTasks,
     auth_data: tuple[Agent, APIKey] = Depends(verify_api_key),
     db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
 ):
     """
     Send a message to the agent (Public API)
@@ -106,30 +144,18 @@ async def public_chat(
 
     try:
         # Use agent_manager.chat() - mark as widget source to separate from platform conversations
-        result = await agent_manager.chat(
+        result = await get_agent_manager().chat(
             db=db,
             agent_id=agent.id,
             message=message_data.message,
             conversation_id=message_data.conversation_id,
             source="widget",
+            config=config,
         )
 
-        # Trigger webhooks for message.sent event
-        try:
-            webhook_payload = {
-                "conversation_id": result["conversation_id"],
-                "user_message": message_data.message,
-                "assistant_response": result["response"],
-                "tokens_used": result.get("tokens_used"),
-                "sources": result.get("sources"),
-                "source": "widget",  # Indicate this came from widget/public API
-            }
-            await WebhookService.trigger_webhooks(
-                db, agent.id, "message.sent", webhook_payload
-            )
-        except Exception as webhook_error:
-            # Don't fail the request if webhook delivery fails
-            logger.error(f"Error triggering webhooks: {webhook_error}")
+        queue_chat_webhooks(
+            background_tasks, agent.id, message_data.message, result, source="widget"
+        )
 
         return ChatResponse(
             response=result["response"],
@@ -138,6 +164,8 @@ async def public_chat(
             sources=result.get("sources"),
         )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -158,10 +186,9 @@ async def list_conversations(
 
     try:
         # Only return widget conversations for public API
-        conversations = await agent_manager.get_conversations(db, agent.id, source="widget")
+        conversations = await get_agent_manager().get_conversations(db, agent.id, source="widget")
 
         # Build response with message counts
-        from sqlalchemy import select, func
         result = []
         for conv in conversations:
             # Count messages for this conversation
@@ -198,10 +225,8 @@ async def get_conversation_messages(
     agent, _ = auth_data
 
     try:
-        messages = await agent_manager.get_conversation_messages(db, conversation_id)
-
-        # Verify conversation belongs to the authenticated agent
-        from sqlalchemy import select
+        # Verify the conversation belongs to the authenticated agent *before*
+        # reading its messages.
         result = await db.execute(
             select(Conversation).filter(
                 Conversation.conversation_id == conversation_id,
@@ -216,6 +241,8 @@ async def get_conversation_messages(
                 detail="Conversation not found",
             )
 
+        messages = await get_agent_manager().get_conversation_messages(db, conversation_id)
+
         return [
             MessageResponse(
                 role=msg.role,
@@ -226,6 +253,9 @@ async def get_conversation_messages(
             for msg in messages
         ]
 
+    except HTTPException:
+        # A 404 raised above must not be rewritten as a 500 by the handler below.
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

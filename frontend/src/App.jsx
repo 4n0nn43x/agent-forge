@@ -3,8 +3,9 @@ import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './components/Dashboard/Dashboard';
 import AgentBuilder from './components/AgentBuilder/AgentBuilder';
 import ChatInterface from './components/ChatInterface/ChatInterface';
+import SettingsPage from './components/Settings/SettingsPage';
 import useAgentStore from './store/agentStore';
-import { Bot, Plus, Home } from 'lucide-react';
+import { Bot, Plus, Home, Settings } from 'lucide-react';
 
 function App() {
   const location = useLocation();
@@ -41,6 +42,18 @@ function App() {
               </Link>
 
               <Link
+                to="/settings"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  location.pathname === '/settings'
+                    ? 'bg-primary-50 text-primary-600'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+                <span>Settings</span>
+              </Link>
+
+              <Link
                 to="/create"
                 className="flex items-center space-x-2 btn btn-primary"
               >
@@ -57,6 +70,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/create" element={<AgentBuilder />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/agent/:agentId" element={<ChatInterface />} />
         </Routes>
       </main>

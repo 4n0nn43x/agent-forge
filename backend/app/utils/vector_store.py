@@ -2,7 +2,7 @@
 
 import os
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import chromadb
 from chromadb.config import Settings
 
@@ -57,7 +57,7 @@ class VectorStore:
                     name=collection_name,
                 )
 
-            logger.info(f"Collection '{collection_name}' ready")
+            logger.debug(f"Collection '{collection_name}' ready")
             return collection
 
         except Exception as e:
@@ -147,34 +147,39 @@ class VectorStore:
             logger.error(f"Error querying agent {agent_id}: {e}")
             raise
 
-    def delete_agent_collection(self, agent_id: int):
+    def delete_agent_collection(self, agent_id: int, missing_ok: bool = False):
         """
         Delete all documents for an agent
 
         Args:
             agent_id: ID of the agent
+            missing_ok: Don't raise if the agent never had a collection
         """
+        collection_name = f"agent_{agent_id}"
         try:
-            collection_name = f"agent_{agent_id}"
             self.client.delete_collection(name=collection_name)
             logger.info(f"Deleted collection for agent {agent_id}")
 
         except Exception as e:
+            if missing_ok:
+                logger.info(f"No collection to delete for agent {agent_id} ({e})")
+                return
             logger.error(f"Error deleting collection for agent {agent_id}: {e}")
             raise
 
-    def get_collection_count(self, agent_id: int) -> int:
+    def get_collection_count(self, agent_id: int, embedding_function=None) -> int:
         """
         Get the number of documents in an agent's collection
 
         Args:
             agent_id: ID of the agent
+            embedding_function: Embedding function the collection was created with
 
         Returns:
             Number of documents
         """
         try:
-            collection = self.get_or_create_collection(agent_id)
+            collection = self.get_or_create_collection(agent_id, embedding_function)
             return collection.count()
 
         except Exception as e:

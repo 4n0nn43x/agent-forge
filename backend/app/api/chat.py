@@ -1,15 +1,15 @@
 """API routes for chat and document management"""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
-import os
 import logging
 
 from ..database import get_db
+from ..dependencies import get_agent_manager, get_config
+from ..settings_store import RuntimeConfig
 from ..models import (
-    Agent,
     Message,
     ChatMessage,
     ChatResponse,
@@ -17,59 +17,68 @@ from ..models import (
     ConversationResponse,
     MessageResponse,
 )
-from ..agents.agent_manager import AgentManager
-from ..utils.vector_store import VectorStore
-from ..agents.rag_engine import RAGEngine
 from ..utils.webhook_service import WebhookService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/agents", tags=["chat"])
 
-# Initialize components
-vector_store = VectorStore(
-    persist_directory=os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_data")
-)
-rag_engine = RAGEngine(
-    embedding_model=os.getenv("EMBEDDING_MODEL", "sentence-transformers")
-)
-agent_manager = AgentManager(vector_store=vector_store, rag_engine=rag_engine)
-
 
 @router.post("/{agent_id}/documents", response_model=DocumentUpload)
 async def upload_document(
     agent_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
 ):
     """Upload a document to agent's knowledge base"""
+    agent_manager = get_agent_manager()
     try:
-        # Validate file size
-        max_size = int(os.getenv("MAX_UPLOAD_SIZE_MB", "10")) * 1024 * 1024
+        # Validate file size (limit configured in Settings)
         content = await file.read()
 
-        if len(content) > max_size:
+        if len(content) > config.max_upload_bytes:
             raise HTTPException(
                 status_code=400,
-                detail=f"File size exceeds {max_size / 1024 / 1024}MB limit",
+                detail=f"File size exceeds {config.max_upload_size_mb}MB limit",
             )
 
         # Validate file type
-        allowed_extensions = os.getenv("ALLOWED_EXTENSIONS", "pdf,txt,md,docx").split(",")
         file_extension = file.filename.split(".")[-1].lower()
 
-        if file_extension not in allowed_extensions:
+        if file_extension not in config.allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail=f"File type .{file_extension} not allowed. Allowed types: {', '.join(allowed_extensions)}",
+                detail=(
+                    f"File type .{file_extension} not allowed. "
+                    f"Allowed types: {', '.join(config.allowed_extensions)}"
+                ),
             )
 
         # Process document
         document = await agent_manager.add_document(
-            db=db, agent_id=agent_id, filename=file.filename, file_content=content
+            db=db,
+            agent_id=agent_id,
+            filename=file.filename,
+            file_content=content,
+            config=config,
         )
 
         logger.info(f"Document {file.filename} uploaded to agent {agent_id}")
+
+        background_tasks.add_task(
+            WebhookService.trigger_webhooks_detached,
+            agent_id,
+            "document.uploaded",
+            {
+                "document_id": document.id,
+                "filename": document.filename,
+                "file_type": document.file_type,
+                "file_size": document.file_size,
+                "chunk_count": document.chunk_count,
+            },
+        )
 
         return DocumentUpload(
             id=document.id,
@@ -80,6 +89,10 @@ async def upload_document(
             processed_at=document.processed_at,
         )
 
+    except HTTPException:
+        # Raised deliberately above (size / type checks) — don't let the generic
+        # handler below turn a 400 into a 500.
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -91,7 +104,7 @@ async def upload_document(
 async def list_documents(agent_id: int, db: AsyncSession = Depends(get_db)):
     """List all documents for an agent"""
     try:
-        documents = await agent_manager.get_agent_documents(db, agent_id)
+        documents = await get_agent_manager().get_agent_documents(db, agent_id)
 
         return [
             DocumentUpload(
@@ -114,32 +127,21 @@ async def list_documents(agent_id: int, db: AsyncSession = Depends(get_db)):
 async def chat_with_agent(
     agent_id: int,
     message: ChatMessage,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
 ):
     """Send a message to an agent"""
     try:
-        result = await agent_manager.chat(
+        result = await get_agent_manager().chat(
             db=db,
             agent_id=agent_id,
             message=message.message,
             conversation_id=message.conversation_id,
+            config=config,
         )
 
-        # Trigger webhooks for message.sent event
-        try:
-            webhook_payload = {
-                "conversation_id": result["conversation_id"],
-                "user_message": message.message,
-                "assistant_response": result["response"],
-                "tokens_used": result.get("tokens_used"),
-                "sources": result.get("sources"),
-            }
-            await WebhookService.trigger_webhooks(
-                db, agent_id, "message.sent", webhook_payload
-            )
-        except Exception as webhook_error:
-            # Don't fail the request if webhook delivery fails
-            logger.error(f"Error triggering webhooks: {webhook_error}")
+        queue_chat_webhooks(background_tasks, agent_id, message.message, result, source="platform")
 
         return ChatResponse(
             response=result["response"],
@@ -148,6 +150,8 @@ async def chat_with_agent(
             sources=result.get("sources"),
         )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -155,11 +159,42 @@ async def chat_with_agent(
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
 
+def queue_chat_webhooks(
+    background_tasks: BackgroundTasks,
+    agent_id: int,
+    user_message: str,
+    result: dict,
+    source: str,
+) -> None:
+    """Schedule the webhooks a chat turn should emit, after the response is sent."""
+    if result.get("conversation_created"):
+        background_tasks.add_task(
+            WebhookService.trigger_webhooks_detached,
+            agent_id,
+            "conversation.started",
+            {"conversation_id": result["conversation_id"], "source": source},
+        )
+
+    background_tasks.add_task(
+        WebhookService.trigger_webhooks_detached,
+        agent_id,
+        "message.sent",
+        {
+            "conversation_id": result["conversation_id"],
+            "user_message": user_message,
+            "assistant_response": result["response"],
+            "tokens_used": result.get("tokens_used"),
+            "sources": result.get("sources"),
+            "source": source,
+        },
+    )
+
+
 @router.get("/{agent_id}/conversations", response_model=List[ConversationResponse])
 async def list_conversations(agent_id: int, db: AsyncSession = Depends(get_db)):
     """List all conversations for an agent"""
     try:
-        conversations = await agent_manager.get_conversations(db, agent_id)
+        conversations = await get_agent_manager().get_conversations(db, agent_id)
 
         # Build response with message counts
         result = []
@@ -195,7 +230,7 @@ async def get_conversation_messages(
 ):
     """Get all messages in a conversation"""
     try:
-        messages = await agent_manager.get_conversation_messages(db, conversation_id)
+        messages = await get_agent_manager().get_conversation_messages(db, conversation_id)
 
         return [
             MessageResponse(
@@ -207,6 +242,8 @@ async def get_conversation_messages(
             for msg in messages
         ]
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

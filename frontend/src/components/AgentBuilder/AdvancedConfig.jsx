@@ -74,7 +74,7 @@ const AdvancedConfig = ({ formData, updateFormData }) => {
               <input
                 type="number"
                 min="100"
-                max="4000"
+                max="32000"
                 step="100"
                 value={formData.max_tokens}
                 onChange={(e) =>

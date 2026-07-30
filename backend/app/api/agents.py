@@ -1,22 +1,24 @@
 """API routes for agent management"""
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import noload
 from typing import List, Optional
-import os
 import logging
 
 from ..database import get_db
+from ..dependencies import get_agent_manager, get_config
+from ..settings_store import RuntimeConfig
 from ..models import (
     Agent,
     AgentCreate,
     AgentUpdate,
     AgentResponse,
-    DocumentUpload,
 )
 from ..agents.templates import list_templates, apply_template
+from ..agents.providers import list_available_models, resolve_provider
+from ..utils.webhook_service import WebhookService
 
 logger = logging.getLogger(__name__)
 
@@ -29,18 +31,27 @@ async def get_templates():
     return {"templates": list_templates()}
 
 
+@router.get("/models")
+async def get_models(config: RuntimeConfig = Depends(get_config)):
+    """Get the model catalogue (OpenRouter recommendations + installed Ollama tags)"""
+    return await list_available_models(config)
+
+
 @router.post("/from-template")
 async def create_agent_from_template(
     template_name: str,
     agent_name: str,
-    llm_model: str = "gpt-4",
+    llm_model: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
 ):
     """Create an agent from a template"""
     try:
-        config = apply_template(template_name, agent_name, llm_model)
+        agent_config = apply_template(
+            template_name, agent_name, llm_model or config.default_llm_model
+        )
 
-        agent = Agent(**config)
+        agent = Agent(**agent_config)
         db.add(agent)
         await db.commit()
         await db.refresh(agent)
@@ -57,18 +68,24 @@ async def create_agent_from_template(
 @router.post("/", response_model=AgentResponse)
 async def create_agent(agent_data: AgentCreate, db: AsyncSession = Depends(get_db)):
     """Create a new agent"""
+    # Validated outside the try below, whose broad handler would turn a 400 into a 500.
+    try:
+        resolve_provider(agent_data.llm_model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     try:
         # If template is specified, apply it first then override with provided values
         if agent_data.template_name:
             try:
-                config = apply_template(
+                agent_config = apply_template(
                     agent_data.template_name, agent_data.name, agent_data.llm_model
                 )
                 # Override template values with provided values
                 for key, value in agent_data.model_dump(exclude_unset=True).items():
                     if value is not None:
-                        config[key] = value
-                agent = Agent(**config)
+                        agent_config[key] = value
+                agent = Agent(**agent_config)
             except ValueError:
                 # Template not found, create from scratch
                 agent = Agent(**agent_data.model_dump())
@@ -129,7 +146,10 @@ async def get_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.put("/{agent_id}", response_model=AgentResponse)
 async def update_agent(
-    agent_id: int, agent_data: AgentUpdate, db: AsyncSession = Depends(get_db)
+    agent_id: int,
+    agent_data: AgentUpdate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
 ):
     """Update an agent"""
     result = await db.execute(
@@ -144,6 +164,14 @@ async def update_agent(
 
     # Update fields
     update_data = agent_data.model_dump(exclude_unset=True)
+
+    if update_data.get("llm_model"):
+        # Fail fast on a model id that maps to no provider.
+        try:
+            resolve_provider(update_data["llm_model"])
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
     for field, value in update_data.items():
         setattr(agent, field, value)
 
@@ -151,6 +179,14 @@ async def update_agent(
     await db.refresh(agent)
 
     logger.info(f"Updated agent: {agent.name} (ID: {agent.id})")
+
+    background_tasks.add_task(
+        WebhookService.trigger_webhooks_detached,
+        agent_id,
+        "agent.updated",
+        {"agent_id": agent_id, "name": agent.name, "updated_fields": sorted(update_data)},
+    )
+
     return await get_agent_response(agent, db)
 
 
@@ -167,11 +203,21 @@ async def delete_agent(agent_id: int, db: AsyncSession = Depends(get_db)):
     if not agent:
         raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
 
+    agent_name = agent.name
+
     # Delete agent (cascade will handle documents and conversations)
     await db.delete(agent)
     await db.commit()
 
-    logger.info(f"Deleted agent: {agent.name} (ID: {agent.id})")
+    # The SQL cascade doesn't reach ChromaDB; drop the collection too, otherwise
+    # its vectors outlive the agent and are inherited by the next agent that
+    # happens to reuse the id.
+    try:
+        get_agent_manager().vector_store.delete_agent_collection(agent_id, missing_ok=True)
+    except Exception as e:
+        logger.error(f"Agent {agent_id} deleted but its vector collection remains: {e}")
+
+    logger.info(f"Deleted agent: {agent_name} (ID: {agent_id})")
     return {"message": f"Agent {agent_id} deleted successfully"}
 
 

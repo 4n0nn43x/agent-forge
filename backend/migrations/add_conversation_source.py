@@ -10,7 +10,6 @@ This column tracks whether a conversation came from:
 
 import asyncio
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path to import app modules

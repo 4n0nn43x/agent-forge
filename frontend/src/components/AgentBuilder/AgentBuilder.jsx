@@ -21,7 +21,7 @@ const AgentBuilder = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    llm_model: 'gpt-4',
+    llm_model: 'openai/gpt-4o-mini',
     personality: 'professional',
     system_prompt: '',
     temperature: 0.7,

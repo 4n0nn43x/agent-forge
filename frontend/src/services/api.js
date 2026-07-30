@@ -17,10 +17,17 @@ const api = axios.create({
 // Templates
 export const getTemplates = () => api.get('/api/agents/templates');
 
-export const createAgentFromTemplate = (templateName, agentName, llmModel = 'gpt-4') =>
+export const createAgentFromTemplate = (templateName, agentName, llmModel) =>
   api.post('/api/agents/from-template', null, {
-    params: { template_name: templateName, agent_name: agentName, llm_model: llmModel },
+    params: {
+      template_name: templateName,
+      agent_name: agentName,
+      ...(llmModel && { llm_model: llmModel }),
+    },
   });
+
+// Models (OpenRouter recommendations + locally installed Ollama tags)
+export const getModels = () => api.get('/api/agents/models');
 
 // Agents
 export const getAgents = () => api.get('/api/agents/');
@@ -100,6 +107,13 @@ export const testWebhook = (agentId, webhookId) =>
 
 export const getWebhookLogs = (agentId, webhookId) =>
   api.get(`/api/agents/${agentId}/webhooks/${webhookId}/logs/`);
+
+// Settings (stored in the database, edited in the UI)
+export const getSettings = () => api.get('/api/settings/');
+
+export const updateSettings = (values) => api.put('/api/settings/', { values });
+
+export const testSettings = () => api.post('/api/settings/test');
 
 // Health check
 export const healthCheck = () => api.get('/health');

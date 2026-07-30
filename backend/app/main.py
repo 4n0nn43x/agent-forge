@@ -7,8 +7,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from .database import init_db
-from .api import agents, chat, api_keys, public, webhooks
+from .database import init_db, AsyncSessionLocal, DATABASE_URL
+from .api import agents, chat, api_keys, public, settings, webhooks
+from .settings_store import SettingsStore
+from .utils.rate_limit import close_limiter, get_limiter
 
 # Load environment variables
 load_dotenv()
@@ -31,26 +33,31 @@ async def lifespan(app: FastAPI):
 
     # Initialize database
     await init_db()
-    logger.info("Database initialized")
+    logger.info(f"Database ready ({DATABASE_URL.split('@')[-1]})")
 
-    # Verify at least one LLM provider is configured
-    has_openai = bool(os.getenv("OPENAI_API_KEY"))
-    has_anthropic = bool(os.getenv("ANTHROPIC_API_KEY"))
+    # Rate limiter backend (Redis when REDIS_URL is set)
+    get_limiter()
 
-    llm_providers = []
-    if has_openai:
-        llm_providers.append("OpenAI")
-    if has_anthropic:
-        llm_providers.append("Anthropic")
+    # Report provider configuration. These now live in the database and are
+    # edited at /settings, so this is a snapshot, not a requirement check.
+    async with AsyncSessionLocal() as db:
+        config = await SettingsStore.resolve(db)
 
-    if not llm_providers:
-        logger.warning(
-            "⚠️  No LLM providers configured! Please set at least one:\n"
-            "   - OPENAI_API_KEY for OpenAI models\n"
-            "   - ANTHROPIC_API_KEY for Anthropic models"
-        )
+    if config.openrouter_api_key:
+        logger.info(f"✓ OpenRouter configured ({config.openrouter_base_url})")
     else:
-        logger.info(f"✓ LLM Providers configured: {', '.join(llm_providers)}")
+        logger.warning(
+            "⚠️  No OpenRouter API key — hosted models unavailable. Add one under "
+            "Settings, or use local Ollama models."
+        )
+
+    logger.info(f"✓ Ollama endpoint: {config.ollama_base_url}")
+    logger.info(
+        "✓ Embeddings: %s (via Ollama — OpenRouter has no embeddings endpoint; "
+        "run `ollama pull %s`)",
+        config.embedding_model,
+        config.embedding_model,
+    )
 
     logger.info("AgentForge is ready! 🚀")
 
@@ -58,6 +65,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down AgentForge...")
+    await close_limiter()
 
 
 # Create FastAPI app
@@ -68,10 +76,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS - Allow all origins for deployment
+# Configure CORS.
+# CORS_ORIGINS was previously declared everywhere but never read. When it is set
+# we honour it; when it is not we fall back to "*" so that the embeddable widget
+# keeps working from arbitrary third-party sites.
+_cors_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+] or ["*"]
+
+if _cors_origins == ["*"]:
+    logger.warning(
+        "CORS_ORIGINS is not set — accepting requests from any origin. "
+        "Set it to a comma-separated allowlist before exposing this instance."
+    )
+else:
+    logger.info(f"CORS restricted to: {', '.join(_cors_origins)}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -84,6 +109,7 @@ app.include_router(agents.router)
 app.include_router(chat.router)
 app.include_router(api_keys.router)
 app.include_router(public.router)
+app.include_router(settings.router)
 app.include_router(webhooks.router)
 
 

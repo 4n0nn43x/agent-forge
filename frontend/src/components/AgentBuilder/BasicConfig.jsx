@@ -1,5 +1,21 @@
-import React from 'react';
-import { Info } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Info, AlertTriangle } from 'lucide-react';
+import { getModels } from '../../services/api';
+
+// Shown until /api/agents/models answers, and if it fails.
+const FALLBACK_PROVIDERS = {
+  openrouter: {
+    label: 'OpenRouter',
+    configured: false,
+    models: [
+      { value: 'openai/gpt-4o-mini', label: 'GPT-4o mini' },
+      { value: 'openai/gpt-4o', label: 'GPT-4o' },
+      { value: 'anthropic/claude-sonnet-4.5', label: 'Claude Sonnet 4.5' },
+    ],
+  },
+  ollama: { label: 'Ollama (local)', configured: false, models: [] },
+};
 
 const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData }) => {
   const personalities = [
@@ -8,13 +24,33 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
     { value: 'technical', label: 'Technical', desc: 'Precise and detailed' },
   ];
 
-  const models = [
-    { value: 'gpt-4', label: 'GPT-4', provider: 'OpenAI' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'OpenAI' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', provider: 'OpenAI' },
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', provider: 'Anthropic' },
-  ];
+  const [providers, setProviders] = useState(FALLBACK_PROVIDERS);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getModels()
+      .then((response) => {
+        if (!cancelled && response.data?.providers) {
+          setProviders(response.data.providers);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to fetch models:', error);
+      })
+      .finally(() => {
+        if (!cancelled) setModelsLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const openrouter = providers.openrouter ?? FALLBACK_PROVIDERS.openrouter;
+  const ollama = providers.ollama ?? FALLBACK_PROVIDERS.ollama;
+  const noProviderReady = modelsLoaded && !openrouter.configured && !ollama.configured;
 
   return (
     <div className="space-y-6">
@@ -73,15 +109,44 @@ const BasicConfig = ({ formData, updateFormData, selectedTemplate, templateData 
             onChange={(e) => updateFormData('llm_model', e.target.value)}
             className="input"
           >
-            {models.map((model) => (
-              <option key={model.value} value={model.value}>
-                {model.label} ({model.provider})
-              </option>
-            ))}
+            <optgroup label={`${openrouter.label}${openrouter.configured ? '' : ' — no API key'}`}>
+              {openrouter.models.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label={ollama.label}>
+              {ollama.models.length === 0 && (
+                <option value="" disabled>
+                  No local model detected
+                </option>
+              )}
+              {ollama.models.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
+                  {model.installed === false ? ' (not pulled)' : ''}
+                </option>
+              ))}
+            </optgroup>
           </select>
           <p className="mt-1 text-xs text-gray-500">
-            Make sure you have the corresponding API key configured
+            OpenRouter models need an API key (set it in Settings). Ollama models must be
+            pulled locally first (<code>ollama pull &lt;model&gt;</code>).
           </p>
+          {noProviderReady && (
+            <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start space-x-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-900">
+                No provider is ready. Add an OpenRouter key or point at a running Ollama in{' '}
+                <Link to="/settings" className="underline font-medium">
+                  Settings
+                </Link>
+                . Document search needs Ollama either way
+                (<code>ollama pull nomic-embed-text</code>).
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Personality */}

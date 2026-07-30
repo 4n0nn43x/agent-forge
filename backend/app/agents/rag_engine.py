@@ -1,12 +1,10 @@
 """RAG (Retrieval-Augmented Generation) Engine using LangChain"""
 
-import os
 import logging
 from typing import List, Dict, Any, Optional
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.documents import Document
-from langchain_openai import OpenAIEmbeddings
 from chromadb.api.types import EmbeddingFunction, Documents
+
+from .providers import build_embeddings
 
 logger = logging.getLogger(__name__)
 
@@ -14,90 +12,96 @@ logger = logging.getLogger(__name__)
 class LangChainEmbeddingAdapter(EmbeddingFunction):
     """Adapter to make LangChain embeddings compatible with ChromaDB"""
 
-    def __init__(self, langchain_embedding):
+    def __init__(self, langchain_embedding, model_name: str = "unknown"):
         self.langchain_embedding = langchain_embedding
+        self.model_name = model_name
 
     def __call__(self, input: Documents) -> List[List[float]]:
         """ChromaDB interface: embed a list of documents"""
-        return self.langchain_embedding.embed_documents(input)
+        return self.langchain_embedding.embed_documents(list(input))
+
+    def name(self) -> str:
+        """Identifier required by recent ChromaDB versions."""
+        return f"langchain-{self.model_name}"
 
 
 class RAGEngine:
     """RAG engine for retrieval-augmented generation"""
 
-    def __init__(self, embedding_model: str = "openai"):
+    def __init__(self):
+        # Keyed by (embedding model, ollama url) so that changing either in the
+        # settings UI produces a new embedding function instead of silently
+        # reusing the old one.
+        self._embedding_cache = {}
+
+    def get_embedding_function(self, config):
+        """Get the embedding function for use with the vector store.
+
+        Built lazily so that a misconfigured or unreachable Ollama instance
+        surfaces as a request-time error instead of crashing the whole app at
+        import time.
         """
-        Initialize RAG engine
-
-        Args:
-            embedding_model: Type of embedding model (currently 'openai' only)
-        """
-        self.embedding_model_type = embedding_model
-        self.embedding_function = self._initialize_embeddings()
-
-    def _initialize_embeddings(self):
-        """Initialize embedding function based on configuration"""
-        # Use OpenAI embeddings (lightweight, no PyTorch dependencies)
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not set. OpenAI embeddings are required.")
-
-        logger.info("Using OpenAI embeddings (text-embedding-ada-002)")
-        langchain_emb = OpenAIEmbeddings(api_key=api_key)
-        return LangChainEmbeddingAdapter(langchain_emb)
-
-    def get_embedding_function(self):
-        """Get the embedding function for use with vector store"""
-        return self.embedding_function
+        cache_key = (config.embedding_model, config.ollama_base_url)
+        cached = self._embedding_cache.get(cache_key)
+        if cached is None:
+            langchain_emb = build_embeddings(config)
+            cached = LangChainEmbeddingAdapter(
+                langchain_emb, getattr(langchain_emb, "model", "ollama")
+            )
+            self._embedding_cache[cache_key] = cached
+        return cached
 
     @staticmethod
-    def create_rag_prompt(
+    def build_system_prompt(
         system_prompt: str,
         personality: str = "professional",
         guardrails: Optional[str] = None,
-    ) -> ChatPromptTemplate:
+        context: Optional[str] = None,
+    ) -> str:
         """
-        Create a RAG-aware prompt template
+        Build the system message for a chat turn.
+
+        The retrieved context is embedded directly instead of going through a
+        prompt template: document chunks routinely contain braces (JSON, code),
+        which a `ChatPromptTemplate` would try to interpret as variables.
 
         Args:
             system_prompt: Base system prompt
             personality: Agent personality
             guardrails: Additional guardrails/limitations
+            context: Retrieved knowledge-base context, if any
 
         Returns:
-            ChatPromptTemplate for RAG
+            The full system message
         """
-        # Build the full system message
-        full_system = f"""{system_prompt}
+        parts = [system_prompt.strip()]
 
-IMPORTANT: You have access to a knowledge base of documents. When answering questions:
-1. ALWAYS prioritize information from the provided context
-2. If the context contains relevant information, use it in your answer
-3. If the context doesn't contain relevant information, say so clearly
-4. Cite information from the context when applicable
-5. Do not make up information not present in the context
+        if context:
+            parts.append(
+                "IMPORTANT: You have access to a knowledge base of documents. "
+                "When answering questions:\n"
+                "1. ALWAYS prioritize information from the provided context\n"
+                "2. If the context contains relevant information, use it in your answer\n"
+                "3. If the context doesn't contain relevant information, say so clearly\n"
+                "4. Cite information from the context when applicable\n"
+                "5. Do not make up information not present in the context"
+            )
 
-Personality: {personality}
-"""
+        parts.append(f"Personality: {personality}")
 
         if guardrails:
-            full_system += f"\n\nAdditional Guidelines:\n{guardrails}"
+            parts.append(f"Additional Guidelines:\n{guardrails}")
 
-        # Create the prompt template
-        template = ChatPromptTemplate.from_messages(
-            [
-                ("system", full_system),
-                (
-                    "system",
-                    "Here is relevant context from the knowledge base:\n\n{context}\n\n"
-                    "Use this context to answer the user's question. If the context doesn't contain "
-                    "relevant information, mention that and provide general guidance if appropriate.",
-                ),
-                ("human", "{question}"),
-            ]
-        )
+        if context:
+            parts.append(
+                "Here is relevant context from the knowledge base:\n\n"
+                f"{context}\n\n"
+                "Use this context to answer the user's question. If the context doesn't "
+                "contain relevant information, mention that and provide general guidance "
+                "if appropriate."
+            )
 
-        return template
+        return "\n\n".join(parts)
 
     @staticmethod
     def format_context(retrieved_docs: List[Dict[str, Any]], max_tokens: int = 2000) -> str:

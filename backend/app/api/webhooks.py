@@ -6,9 +6,11 @@ import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc
+from sqlalchemy import select, desc
 
 from ..database import get_db
+from ..dependencies import get_config
+from ..settings_store import RuntimeConfig
 from ..models import (
     Webhook,
     WebhookLog,
@@ -18,7 +20,7 @@ from ..models import (
     WebhookResponse,
     WebhookLogResponse,
 )
-from ..utils.webhook_service import WebhookService
+from ..utils.webhook_service import WebhookService, WebhookUrlError
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,7 @@ async def create_webhook(
     agent_id: int,
     webhook_data: WebhookCreate,
     db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
 ):
     """Create a new webhook for an agent"""
     # Verify agent exists
@@ -46,6 +49,12 @@ async def create_webhook(
             detail=f"Invalid events: {', '.join(invalid_events)}. Supported events: {', '.join(WebhookService.SUPPORTED_EVENTS)}"
         )
 
+    # Validate the target URL (blocks loopback / private / metadata addresses)
+    try:
+        url = WebhookService.validate_url(webhook_data.url, config.allow_private_webhook_urls)
+    except WebhookUrlError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     # Generate secret if not provided
     secret = webhook_data.secret
     if not secret:
@@ -60,7 +69,7 @@ async def create_webhook(
     webhook = Webhook(
         agent_id=agent_id,
         name=webhook_data.name,
-        url=webhook_data.url,
+        url=url,
         events=",".join(webhook_data.events),
         secret=secret,
         headers=headers_json,
@@ -153,6 +162,7 @@ async def update_webhook(
     webhook_id: int,
     webhook_data: WebhookUpdate,
     db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
 ):
     """Update a webhook"""
     result = await db.execute(
@@ -167,7 +177,12 @@ async def update_webhook(
     if webhook_data.name is not None:
         webhook.name = webhook_data.name
     if webhook_data.url is not None:
-        webhook.url = webhook_data.url
+        try:
+            webhook.url = WebhookService.validate_url(
+                webhook_data.url, config.allow_private_webhook_urls
+            )
+        except WebhookUrlError as e:
+            raise HTTPException(status_code=400, detail=str(e))
     if webhook_data.events is not None:
         # Validate events
         invalid_events = [e for e in webhook_data.events if e not in WebhookService.SUPPORTED_EVENTS and e != "*"]
@@ -260,6 +275,7 @@ async def test_webhook(
     agent_id: int,
     webhook_id: int,
     db: AsyncSession = Depends(get_db),
+    config: RuntimeConfig = Depends(get_config),
 ):
     """Test a webhook by sending a test payload"""
     result = await db.execute(
@@ -279,7 +295,11 @@ async def test_webhook(
     }
 
     success = await WebhookService.deliver_webhook(
-        db, webhook, "test.webhook", test_payload
+        db,
+        webhook,
+        WebhookService.TEST_EVENT,
+        test_payload,
+        config.allow_private_webhook_urls,
     )
 
     if success:

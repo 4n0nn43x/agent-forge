@@ -1,7 +1,6 @@
 """Document processing utilities for various file types"""
 
 import hashlib
-import os
 from typing import List, Dict, Any
 from pathlib import Path
 import logging
@@ -165,6 +164,13 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[st
     Returns:
         List of text chunks
     """
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be positive")
+    # An overlap at least as large as the chunk would rewind `start` to or past
+    # its previous value on every iteration, looping forever.
+    if overlap >= chunk_size:
+        raise ValueError("overlap must be smaller than chunk_size")
+
     if len(text) <= chunk_size:
         return [text]
 
@@ -196,7 +202,10 @@ def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[st
         if chunk:
             chunks.append(chunk)
 
-        # Move start position with overlap
-        start = end - overlap if end < len(text) else len(text)
+        if end >= len(text):
+            break
+
+        # Move start position with overlap, always making forward progress.
+        start = max(end - overlap, start + 1)
 
     return chunks

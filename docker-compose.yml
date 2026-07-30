@@ -1,83 +1,76 @@
+# AgentForge — one image, one container.
+#
+# Everything else (API keys, endpoints, models, upload limits) is configured in
+# the web UI at http://localhost:3000/settings and stored in the database.
+#
+#   docker compose up -d --build
+#
+# Reusing services you already run:
+#   * PostgreSQL — uncomment DATABASE_URL below and join its network.
+#   * Redis      — uncomment REDIS_URL below; needed only if you run more than
+#                  one uvicorn worker, so the API-key rate limiter is shared.
+# Neither is required: the defaults use SQLite and an in-process limiter.
+
 services:
-  backend:
+  agentforge:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: agentforge-backend
+    image: agentforge:latest
+    container_name: agentforge
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "3000:3000"
     environment:
-      # Application
-      - APP_NAME=AgentForge
-      - ENV=${ENV:-development}
+      - ENV=${ENV:-production}
       - DEBUG=${DEBUG:-False}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
 
-      # API Configuration
-      - API_HOST=0.0.0.0
-      - API_PORT=8000
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5000,http://localhost:5173}
+      # Storage. Swap in your own PostgreSQL:
+      #   DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/agentforge
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/agentforge.db}
+      - CHROMA_PERSIST_DIRECTORY=/app/data/chroma_data
 
-      # Database
-      - DATABASE_URL=sqlite+aiosqlite:///./data/agentforge.db
+      # Optional Redis for the public-API rate limiter:
+      #   REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=${REDIS_URL:-}
 
-      # Vector Store
-      - CHROMA_PERSIST_DIRECTORY=./data/chroma_data
+      # Empty accepts any origin, which the embeddable widget needs.
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
 
-      # LLM API Keys (REQUIRED - Set these!)
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-
-      # Embeddings
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers}
-      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-all-MiniLM-L6-v2}
-
-      # Document Upload
-      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-10}
-      - ALLOWED_EXTENSIONS=${ALLOWED_EXTENSIONS:-pdf,txt,md,docx}
-
-      # Rate Limiting
-      - CHAT_RATE_LIMIT=${CHAT_RATE_LIMIT:-60}
+      # Generated under /app/data on first run if unset.
+      - SECRET_KEY=${SECRET_KEY:-}
+    extra_hosts:
+      # Lets the container reach an Ollama daemon running on the host (Linux).
+      # Configure the endpoint itself in Settings: http://host.docker.internal:11434
+      - "host.docker.internal:host-gateway"
     volumes:
-      - backend-data:/app/data
-      - chroma-data:/app/chroma_data
-    networks:
-      - agentforge-network
+      # SQLite file, Chroma vectors and the settings key all live under /app/data,
+      # so a single volume carries the whole state.
+      - agentforge-data:/app/data
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:3000/health', timeout=5).status == 200 else 1)
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: agentforge-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    depends_on:
-      - backend
-    networks:
-      - agentforge-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-
-networks:
-  agentforge-network:
-    driver: bridge
+    # To reach a PostgreSQL/Redis that lives on another compose project's network,
+    # attach to it here and set the URLs above to their service names:
+    #
+    # networks:
+    #   - default
+    #   - shared
+    #
+    # networks:
+    #   shared:
+    #     external: true
+    #     name: <the other project's network, e.g. tp2_backend-net>
 
 volumes:
-  backend-data:
-    driver: local
-  chroma-data:
+  agentforge-data:
     driver: local

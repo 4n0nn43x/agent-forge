@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from .database import Base
+from .utils.timeutils import utcnow
 
 
 # SQLAlchemy Models
@@ -17,7 +18,7 @@ class Agent(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
-    llm_model = Column(String(100), nullable=False)  # e.g., "gpt-4", "claude-sonnet"
+    llm_model = Column(String(100), nullable=False)  # "vendor/model" (OpenRouter) or "tag" (Ollama)
     system_prompt = Column(Text, nullable=False)
     temperature = Column(Float, default=0.7)
     max_tokens = Column(Integer, default=1000)
@@ -25,8 +26,8 @@ class Agent(Base):
     guardrails = Column(Text, nullable=True)  # Additional instructions/limitations
     template_name = Column(String(100), nullable=True)  # Which template was used
     config = Column(JSON, nullable=True)  # Additional config as JSON
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     documents = relationship("Document", back_populates="agent", cascade="all, delete-orphan")
@@ -44,7 +45,7 @@ class Document(Base):
     file_size = Column(Integer, nullable=False)  # Size in bytes
     file_type = Column(String(50), nullable=False)  # pdf, txt, md, docx
     chunk_count = Column(Integer, default=0)  # Number of chunks created
-    processed_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, default=utcnow)
 
     # Relationships
     agent = relationship("Agent", back_populates="documents")
@@ -59,8 +60,8 @@ class Conversation(Base):
     conversation_id = Column(String(100), unique=True, index=True)  # UUID
     title = Column(String(255), nullable=True)
     source = Column(String(20), default="platform")  # platform, public_api, widget
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     # Relationships
     agent = relationship("Agent", back_populates="conversations")
@@ -76,7 +77,7 @@ class Message(Base):
     role = Column(String(20), nullable=False)  # user, assistant, system
     content = Column(Text, nullable=False)
     tokens_used = Column(Integer, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=utcnow)
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
@@ -93,7 +94,7 @@ class APIKey(Base):
     is_active = Column(Integer, default=1)  # 1 for active, 0 for disabled
     rate_limit = Column(Integer, default=100)  # Requests per hour
     allowed_origins = Column(Text, nullable=True)  # Comma-separated domains
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     last_used_at = Column(DateTime, nullable=True)
 
     # Relationships
@@ -113,11 +114,25 @@ class Webhook(Base):
     is_active = Column(Integer, default=1)  # 1 for active, 0 for disabled
     headers = Column(Text, nullable=True)  # JSON string of custom headers
     retry_count = Column(Integer, default=3)  # Number of retries on failure
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     last_triggered_at = Column(DateTime, nullable=True)
 
     # Relationships
     agent = relationship("Agent")
+
+
+class Setting(Base):
+    """Runtime configuration edited from the UI.
+
+    Keeps credentials and endpoints out of `.env`: only bootstrap values
+    (database URL, data paths) still have to be environment variables.
+    """
+    __tablename__ = "settings"
+
+    key = Column(String(64), primary_key=True)
+    value = Column(Text, nullable=True)  # encrypted when is_secret is set
+    is_secret = Column(Integer, default=0)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class WebhookLog(Base):
@@ -132,7 +147,7 @@ class WebhookLog(Base):
     response_body = Column(Text, nullable=True)  # Response from webhook
     success = Column(Integer, default=0)  # 1 for success, 0 for failure
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     # Relationships
     webhook = relationship("Webhook")
@@ -144,10 +159,14 @@ class AgentCreate(BaseModel):
     """Schema for creating a new agent"""
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
-    llm_model: str = Field(..., description="e.g., gpt-4, claude-sonnet-3-5")
+    llm_model: str = Field(
+        ...,
+        min_length=1,
+        description="OpenRouter id (vendor/model, e.g. openai/gpt-4o) or Ollama tag (e.g. llama3.2)",
+    )
     system_prompt: Optional[str] = None
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
-    max_tokens: int = Field(default=1000, ge=100, le=4000)
+    max_tokens: int = Field(default=1000, ge=100, le=32000)
     personality: str = Field(default="professional")
     guardrails: Optional[str] = None
     template_name: Optional[str] = None
@@ -161,7 +180,7 @@ class AgentUpdate(BaseModel):
     llm_model: Optional[str] = None
     system_prompt: Optional[str] = None
     temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
-    max_tokens: Optional[int] = Field(None, ge=100, le=4000)
+    max_tokens: Optional[int] = Field(None, ge=100, le=32000)
     personality: Optional[str] = None
     guardrails: Optional[str] = None
     config: Optional[Dict[str, Any]] = None

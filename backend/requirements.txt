@@ -1,30 +1,37 @@
-fastapi
-uvicorn[standard]
-python-multipart
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
 pydantic>=2.0.0
-pydantic-settings
+pydantic-settings>=2.0.0
 sqlalchemy>=2.0.0
-aiosqlite
+aiosqlite>=0.19
 
 # LangChain ecosystem
-langchain-core
-langchain
-langchain-community
-langchain-openai
-langchain-anthropic
+langchain-core>=0.3
+langchain>=0.3
+# OpenRouter speaks the OpenAI wire protocol; langchain-openai is the client for
+# it, pointed at OPENROUTER_BASE_URL. No OpenAI account is involved.
+langchain-openai>=0.2
+langchain-ollama>=0.2
 
 # Vector database
-chromadb
+chromadb>=0.5
 
 # Document processing
-pypdf
-python-docx
-python-magic
-beautifulsoup4
-requests
+pypdf>=4.0
+python-docx>=1.1
 
-# Embeddings (using OpenAI - lightweight, no PyTorch)
-tiktoken
+# HTTP client (webhook delivery, Ollama model listing, provider checks)
+aiohttp>=3.9
+
+# Encryption for secrets stored in the settings table
+cryptography>=42.0
+
+# Optional backends, both auto-detected:
+#   asyncpg -> DATABASE_URL=postgresql+asyncpg://...
+#   redis   -> REDIS_URL=redis://...  (shared API-key rate limiting)
+asyncpg>=0.29
+redis[hiredis]>=5.0
 
 # Utilities
-python-dotenv
+python-dotenv>=1.0

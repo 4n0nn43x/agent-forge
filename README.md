@@ -30,9 +30,9 @@ AgentForge transforms your documents and data into intelligent AI agents capable
 - **Dynamic knowledge base**: Add or remove documents at any time
 
 #### 3. **Multi-LLM Support** 🔌
-- **OpenAI**: GPT-4, GPT-4 Turbo, GPT-3.5 Turbo
-- **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus
-- **Flexible configuration**: Choose the model suited for your use case and budget
+- **OpenRouter**: one API key, hundreds of hosted models (`openai/gpt-4o`, `anthropic/claude-sonnet-4.5`, `meta-llama/…`, …)
+- **Ollama**: run models locally, no key and no per-token cost (`llama3.2`, `qwen2.5`, `mistral`, …)
+- **Automatic routing**: the provider is inferred from the model id — namespaced (`vendor/model`) means OpenRouter, a plain tag means Ollama
 - **Behavior customization**: Adjust temperature, max_tokens, and personality
 
 #### 4. **Modern Chat Interface** 💬
@@ -120,9 +120,12 @@ AgentForge is perfect for:
 ### Prerequisites
 
 - Docker and Docker Compose
-- At least one LLM API key:
-  - OpenAI API key (for GPT models)
-  - Anthropic API key (for Claude models)
+- [Ollama](https://ollama.com) — **required**, it provides the embeddings that power document search:
+  ```bash
+  ollama pull nomic-embed-text
+  ```
+- An [OpenRouter API key](https://openrouter.ai/keys) — optional, only if you want hosted
+  models. Without it, agents run entirely on local Ollama models.
 
 ### Installation
 
@@ -132,24 +135,66 @@ git clone https://github.com/4n0nn43x/agent-forge
 cd agent-forge
 ```
 
-2. **Set up environment variables**
+2. **Start the application** — no configuration file needed
 ```bash
-cp .env.example .env
-# Edit .env and add your API keys
-nano .env
+docker compose up -d --build
 ```
 
-3. **Start the application**
-```bash
-docker-compose up -d
-```
+3. **Configure it in the browser**
+
+Open http://localhost:3000/settings and fill in:
+
+| Setting | Value |
+|---|---|
+| OpenRouter API key | your key, if you want hosted models |
+| Ollama endpoint | `http://host.docker.internal:11434` from Docker |
+
+Then hit **Test connection** to confirm both providers answer.
 
 4. **Access the application**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
+- App and API: http://localhost:3000
+- API docs: http://localhost:3000/docs
 
 That's it! 🎉
+
+> **Everything runs in one container.** nginx serves the built frontend and
+> proxies `/api` to FastAPI, both supervised in the same image, exposing only
+> port 3000. There is a single `Dockerfile` and a single `docker-compose.yml`.
+
+### Configuration lives in the UI, not in `.env`
+
+API keys, endpoints, model names and upload limits are stored in the database and
+edited at `/settings`. Secrets are encrypted at rest with a key that is generated
+under the data directory on first run.
+
+`.env` is optional and holds only what is needed before the database can be read:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DATABASE_URL` | SQLite under `/app/data` | Point at PostgreSQL to use one instead |
+| `CHROMA_PERSIST_DIRECTORY` | `/app/data/chroma_data` | Vector store location |
+| `REDIS_URL` | *(unset)* | Shares the API-key rate limiter across workers |
+| `CORS_ORIGINS` | *(empty = any)* | Allowlist; empty is what the widget needs |
+| `SECRET_KEY` | auto-generated | Encryption key for stored secrets |
+| `LOG_LEVEL` / `DEBUG` | `INFO` / `False` | |
+
+Environment variables still act as a fallback for any UI setting, so an
+orchestrator can inject values without a UI round-trip.
+
+### Reusing an existing PostgreSQL / Redis
+
+Neither is required — the defaults are SQLite and an in-process rate limiter. If
+you already run them, set the URLs and attach to their network in
+`docker-compose.yml`:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://user:password@postgres:5432/agentforge
+REDIS_URL=redis://redis:6379/0
+```
+
+Redis matters only if you run more than one uvicorn worker: without it each
+worker keeps its own counters, so the effective rate limit is multiplied by the
+worker count.
 
 ---
 
@@ -211,20 +256,21 @@ That's it! 🎉
 └──────┬───────────────┬──────────────────┘
        │               │
        ▼               ▼
-┌──────────────┐  ┌─────────────────┐
-│   SQLite     │  │   ChromaDB      │
-│  (Metadata)  │  │ (Vector Store)  │
-└──────────────┘  └─────────────────┘
+┌────────────────────┐  ┌─────────────────┐
+│  SQLite / Postgres │  │   ChromaDB      │
+│ (metadata+settings)│  │ (Vector Store)  │
+└────────────────────┘  └─────────────────┘
 ```
 
 ### Tech Stack
 
 **Backend:**
-- Python 3.11 + FastAPI
+- Python 3.12 + FastAPI
 - LangChain for AI orchestration
 - ChromaDB for vector storage
-- SQLite for metadata
-- Support for OpenAI & Anthropic
+- SQLite by default, PostgreSQL optional (`asyncpg`)
+- Redis optional, for shared API-key rate limiting
+- OpenRouter (hosted) + Ollama (local) as LLM providers
 
 **Frontend:**
 - React 18 + Vite
@@ -241,32 +287,60 @@ That's it! 🎉
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Settings (in the UI, at `/settings`)
 
-See `.env.example` for all available options. Key variables:
+| Group | Setting | Default |
+|---|---|---|
+| OpenRouter | API key | *(empty)* |
+| | Base URL | `https://openrouter.ai/api/v1` |
+| | App name / Site URL | `AgentForge` / *(empty)* — optional attribution |
+| Ollama | Endpoint | `http://localhost:11434` |
+| | Embedding model | `nomic-embed-text` |
+| Models | Default model | `openai/gpt-4o-mini` |
+| Documents | Max upload size (MB) | `10` |
+| | Allowed file types | `pdf,txt,md,docx` |
+| Webhooks | Allow private addresses | off (SSRF guard) |
 
-```bash
-# LLM Providers (at least one required)
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
+The **Test connection** button validates the OpenRouter key and checks that
+Ollama answers with the embedding model pulled.
 
-# Optional
-ENV=production
-LOG_LEVEL=INFO
-MAX_UPLOAD_SIZE_MB=10
-EMBEDDING_MODEL=sentence-transformers
-```
+For the handful of bootstrap variables that remain in `.env`, see
+[Configuration lives in the UI](#configuration-lives-in-the-ui-not-in-env) above.
 
 ### Supported LLM Models
 
-**OpenAI:**
-- gpt-4
-- gpt-4-turbo
-- gpt-3.5-turbo
+The provider is derived from the model id:
 
-**Anthropic:**
-- claude-3-5-sonnet-20241022
-- claude-3-opus-20240229
+| Model id | Provider | Example |
+|---|---|---|
+| `vendor/model` | OpenRouter | `openai/gpt-4o`, `anthropic/claude-sonnet-4.5` |
+| plain tag | Ollama | `llama3.2`, `qwen2.5:7b`, `mistral` |
+| `openrouter:…` / `ollama:…` | forced | `ollama:hf.co/user/model` |
+
+`GET /api/agents/models` returns the recommended OpenRouter models plus whatever
+is actually pulled on your local Ollama; the agent builder populates its
+dropdown from it.
+
+> **Embeddings note.** OpenRouter exposes no embeddings endpoint, so document
+> indexing and retrieval always go through Ollama. Even an OpenRouter-only setup
+> needs a reachable Ollama with `nomic-embed-text` pulled.
+
+### Upgrading from the OpenAI/Anthropic version
+
+Existing installs need a one-off migration, for two reasons: stored model ids
+like `gpt-4` no longer resolve to a provider, and vectors embedded with
+`text-embedding-ada-002` (1536 dimensions) are incompatible with the Ollama
+embedding model (768), so ChromaDB rejects any query against them.
+
+```bash
+cd backend
+python -m migrations.migrate_to_openrouter_ollama --dry-run   # preview
+python -m migrations.migrate_to_openrouter_ollama             # apply
+```
+
+It rewrites model ids to their OpenRouter equivalents and drops the stale
+collections. **Documents must be re-uploaded afterwards** — their text only ever
+lived in ChromaDB, so it cannot be re-embedded automatically.
 
 ---
 
@@ -981,7 +1055,7 @@ curl -X POST "http://localhost:8000/api/agents/" \
   -d '{
     "name": "Support Bot",
     "description": "24/7 customer support assistant",
-    "llm_model": "gpt-4",
+    "llm_model": "openai/gpt-4o-mini",
     "personality": "friendly",
     "system_prompt": "You are a helpful customer support agent. Be concise and friendly."
   }'

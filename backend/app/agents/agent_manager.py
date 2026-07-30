@@ -1,20 +1,37 @@
 """Agent management and orchestration"""
 
-import os
 import logging
-from typing import List, Dict, Any, Optional, AsyncIterator
+from typing import List, Dict, Any, Optional
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from langchain_openai import ChatOpenAI
-from langchain_anthropic import ChatAnthropic
+from sqlalchemy import select, func, delete
 
 from ..models import Agent, Document, Conversation, Message
 from ..utils.vector_store import VectorStore
 from ..utils.document_processor import DocumentProcessor, chunk_text
+from ..utils.timeutils import utcnow
 from .rag_engine import RAGEngine
+from .providers import build_chat_model
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_total_tokens(response) -> Optional[int]:
+    """Read the token count off an LLM response, tolerating providers that omit it.
+
+    Ollama and OpenRouter both report usage, but not always, and
+    `usage_metadata` can be present-but-None on some LangChain versions.
+    """
+    usage = getattr(response, "usage_metadata", None)
+    if isinstance(usage, dict):
+        total = usage.get("total_tokens")
+        if isinstance(total, int):
+            return total
+
+    metadata = getattr(response, "response_metadata", None) or {}
+    token_usage = metadata.get("token_usage") or metadata.get("usage") or {}
+    total = token_usage.get("total_tokens")
+    return total if isinstance(total, int) else None
 
 
 class AgentManager:
@@ -32,53 +49,27 @@ class AgentManager:
         self.rag_engine = rag_engine
         self.document_processor = DocumentProcessor()
 
-    def _get_llm(self, agent: Agent):
+    def _get_llm(self, agent: Agent, config):
         """
         Get LangChain LLM instance based on agent configuration
 
         Supports:
-        - OpenAI models (GPT-4, GPT-3.5-turbo)
-        - Anthropic models (Claude)
+        - OpenRouter (namespaced ids, e.g. "openai/gpt-4o")
+        - Ollama (plain tags, e.g. "llama3.2")
 
         Args:
             agent: Agent database model
+            config: Resolved RuntimeConfig (credentials, endpoints)
 
         Returns:
             LangChain LLM instance
         """
-        model_name = agent.llm_model.lower()
-
-        # OpenAI models
-        if "gpt" in model_name or model_name.startswith("o1"):
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY not set")
-
-            return ChatOpenAI(
-                model=agent.llm_model,
-                temperature=agent.temperature,
-                max_tokens=agent.max_tokens,
-                api_key=api_key,
-            )
-
-        # Anthropic models
-        elif "claude" in model_name or "sonnet" in model_name or "opus" in model_name:
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not api_key:
-                raise ValueError("ANTHROPIC_API_KEY not set")
-
-            return ChatAnthropic(
-                model=agent.llm_model,
-                temperature=agent.temperature,
-                max_tokens=agent.max_tokens,
-                api_key=api_key,
-            )
-
-        else:
-            raise ValueError(
-                f"Unsupported model: {agent.llm_model}. "
-                f"Supported providers: OpenAI (gpt-*), Anthropic (claude-*)"
-            )
+        return build_chat_model(
+            model=agent.llm_model,
+            temperature=agent.temperature,
+            max_tokens=agent.max_tokens,
+            config=config,
+        )
 
     async def add_document(
         self,
@@ -86,6 +77,7 @@ class AgentManager:
         agent_id: int,
         filename: str,
         file_content: bytes,
+        config=None,
     ) -> Document:
         """
         Process and add a document to agent's knowledge base
@@ -95,6 +87,7 @@ class AgentManager:
             agent_id: Agent ID
             filename: Document filename
             file_content: Binary file content
+            config: Resolved RuntimeConfig (embedding endpoint)
 
         Returns:
             Document database model
@@ -150,7 +143,7 @@ class AgentManager:
             documents=chunks,
             metadatas=metadatas,
             ids=ids,
-            embedding_function=self.rag_engine.get_embedding_function(),
+            embedding_function=self.rag_engine.get_embedding_function(config),
         )
 
         # Save document record to database
@@ -176,16 +169,18 @@ class AgentManager:
         )
         return result.scalars().all()
 
-    async def delete_agent_documents(self, db: AsyncSession, agent_id: int):
-        """Delete all documents for an agent"""
-        # Delete from vector store
-        self.vector_store.delete_agent_collection(agent_id)
+    async def delete_agent_documents(self, db: AsyncSession, agent_id: int) -> int:
+        """Delete all documents for an agent. Returns the number of rows removed."""
+        # Delete from vector store first; a missing collection is not an error here.
+        self.vector_store.delete_agent_collection(agent_id, missing_ok=True)
 
         # Delete from database
-        await db.execute(select(Document).where(Document.agent_id == agent_id))
+        result = await db.execute(delete(Document).where(Document.agent_id == agent_id))
         await db.commit()
 
-        logger.info(f"Deleted all documents for agent {agent_id}")
+        deleted = result.rowcount or 0
+        logger.info(f"Deleted {deleted} documents for agent {agent_id}")
+        return deleted
 
     async def chat(
         self,
@@ -194,6 +189,7 @@ class AgentManager:
         message: str,
         conversation_id: Optional[str] = None,
         source: str = "platform",
+        config=None,
     ) -> Dict[str, Any]:
         """
         Handle chat interaction with agent
@@ -204,6 +200,7 @@ class AgentManager:
             message: User message
             conversation_id: Optional existing conversation ID
             source: Source of the conversation (platform, public_api, widget)
+            config: Resolved RuntimeConfig (credentials, endpoints)
 
         Returns:
             Dictionary with response and metadata
@@ -215,9 +212,13 @@ class AgentManager:
             raise ValueError(f"Agent {agent_id} not found")
 
         # Get or create conversation
+        conversation_created = False
         if conversation_id:
             result = await db.execute(
-                select(Conversation).where(Conversation.conversation_id == conversation_id)
+                select(Conversation).where(
+                    Conversation.conversation_id == conversation_id,
+                    Conversation.agent_id == agent_id,
+                )
             )
             conversation = result.scalar_one_or_none()
             if not conversation:
@@ -233,6 +234,7 @@ class AgentManager:
             db.add(conversation)
             await db.commit()
             await db.refresh(conversation)
+            conversation_created = True
 
         # Check if agent has documents
         result = await db.execute(
@@ -252,7 +254,7 @@ class AgentManager:
                 agent_id=agent_id,
                 query_text=message,
                 n_results=5,
-                embedding_function=self.rag_engine.get_embedding_function(),
+                embedding_function=self.rag_engine.get_embedding_function(config),
             )
 
             # Build RAG context
@@ -268,41 +270,27 @@ class AgentManager:
         history = result.scalars().all()
 
         # Get LLM
-        llm = self._get_llm(agent)
+        llm = self._get_llm(agent, config)
 
-        # Build prompt
-        prompt_template = self.rag_engine.create_rag_prompt(
+        # Build the message list: system prompt (with any RAG context), then the
+        # recent history, then the current question.
+        system_message = self.rag_engine.build_system_prompt(
             system_prompt=agent.system_prompt,
             personality=agent.personality,
             guardrails=agent.guardrails,
+            context=context or None,
         )
 
-        # Format with history if available
-        messages_for_llm = []
-
-        # Add system message with context
-        if context:
-            formatted_prompt = prompt_template.format_messages(
-                context=context,
-                question=message,
-            )
-            messages_for_llm.extend(formatted_prompt)
-        else:
-            # No RAG context
-            messages_for_llm.append(("system", agent.system_prompt))
-            messages_for_llm.append(("human", message))
+        messages_for_llm = [("system", system_message)]
 
         # Add conversation history (limit to last 10 messages)
-        history_messages = []
         for msg in history[-10:]:
             if msg.role == "user":
-                history_messages.append(("human", msg.content))
+                messages_for_llm.append(("human", msg.content))
             elif msg.role == "assistant":
-                history_messages.append(("ai", msg.content))
+                messages_for_llm.append(("ai", msg.content))
 
-        # Insert history before the current question
-        if history_messages:
-            messages_for_llm = [messages_for_llm[0]] + history_messages + messages_for_llm[1:]
+        messages_for_llm.append(("human", message))
 
         # Get response from LLM
         logger.info(f"Generating response for agent {agent_id}")
@@ -319,11 +307,13 @@ class AgentManager:
             conversation_id=conversation.id,
             role="assistant",
             content=response_text,
-            tokens_used=response.usage_metadata.get("total_tokens") if hasattr(response, "usage_metadata") else None,
+            tokens_used=_extract_total_tokens(response),
         )
 
         db.add(user_msg)
         db.add(assistant_msg)
+        # Bump the conversation so that ordering by updated_at reflects activity.
+        conversation.updated_at = utcnow()
         await db.commit()
 
         logger.info(f"Chat response generated for agent {agent_id}")
@@ -331,6 +321,7 @@ class AgentManager:
         return {
             "response": response_text,
             "conversation_id": conversation_id,
+            "conversation_created": conversation_created,
             "sources": sources if sources else None,
             "tokens_used": assistant_msg.tokens_used,
         }

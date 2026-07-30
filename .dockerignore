@@ -3,15 +3,27 @@
 **/node_modules
 **/__pycache__
 **/.pytest_cache
+**/.ruff_cache
 **/.venv
 **/venv
 **/*.pyc
-**/.env
+**/*.pyo
 **/data
 **/chroma_data
+**/*.db
+**/*.sqlite
+**/*.sqlite3
 **/.DS_Store
 **/dist
 **/*.log
+
+# Never let a real .env reach the build context: Vite would inline VITE_API_URL
+# into the bundle, and secrets would end up in an image layer.
+**/.env
+**/.env.*
+!**/.env.example
+
 README.md
+LICENSE
 docker-compose.yml
-.env.example
+docker-compose.*.yml

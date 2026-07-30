@@ -166,7 +166,7 @@ def list_templates() -> Dict[str, Dict[str, Any]]:
     return {key: template.to_dict() for key, template in TEMPLATES.items()}
 
 
-def apply_template(template_name: str, agent_name: str, llm_model: str = "gpt-4") -> Dict[str, Any]:
+def apply_template(template_name: str, agent_name: str, llm_model: str) -> Dict[str, Any]:
     """Apply a template to create agent configuration"""
     template = get_template(template_name)
     if not template:
