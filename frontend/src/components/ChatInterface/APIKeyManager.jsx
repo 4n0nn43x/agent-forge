@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Key, Plus, Trash2, Copy, Eye, EyeOff, Check } from 'lucide-react';
+import { AlertTriangle, Key, Plus, Trash2, Copy, Check } from 'lucide-react';
 import * as api from '../../services/api';
 import Alert from '../Common/Alert';
 import LoadingSpinner from '../Common/LoadingSpinner';
@@ -13,7 +13,6 @@ const APIKeyManager = ({ agentId }) => {
   const [showNewKeyModal, setShowNewKeyModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyData, setNewKeyData] = useState(null);
-  const [visibleKeys, setVisibleKeys] = useState({});
   const [copiedKey, setCopiedKey] = useState(null);
 
   useEffect(() => {
@@ -85,17 +84,6 @@ const APIKeyManager = ({ agentId }) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(keyId);
     setTimeout(() => setCopiedKey(null), 2000);
-  };
-
-  const toggleKeyVisibility = (keyId) => {
-    setVisibleKeys(prev => ({
-      ...prev,
-      [keyId]: !prev[keyId]
-    }));
-  };
-
-  const maskKey = (key) => {
-    return key.substring(0, 10) + '•••••••••••••••••••' + key.substring(key.length - 4);
   };
 
   const formatDate = (dateString) => {
@@ -246,34 +234,6 @@ const APIKeyManager = ({ agentId }) => {
                     >
                       {key.is_active ? 'Active' : 'Disabled'}
                     </span>
-                  </div>
-
-                  <div className="flex items-center space-x-2 mb-2">
-                    <code className="text-sm font-mono text-ink-soft break-all">
-                      {visibleKeys[key.id] ? key.key : maskKey(key.key)}
-                    </code>
-                    <button
-                      onClick={() => toggleKeyVisibility(key.id)}
-                      className="p-1 hover:bg-subtle rounded"
-                      title={visibleKeys[key.id] ? 'Hide' : 'Show'}
-                    >
-                      {visibleKeys[key.id] ? (
-                        <EyeOff className="w-4 h-4 text-muted" />
-                      ) : (
-                        <Eye className="w-4 h-4 text-muted" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => copyToClipboard(key.key, key.id)}
-                      className="p-1 hover:bg-subtle rounded"
-                      title="Copy to clipboard"
-                    >
-                      {copiedKey === key.id ? (
-                        <Check className="w-4 h-4 text-ready" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-muted" />
-                      )}
-                    </button>
                   </div>
 
                   <div className="flex items-center space-x-4 text-xs text-muted">

@@ -24,6 +24,35 @@ class WebhookUrlError(ValueError):
     """Raised when a webhook URL is not allowed."""
 
 
+def _allow_private(allow_private) -> bool:
+    """`None` falls back to the environment, for callers without a settings session."""
+    if allow_private is None:
+        return os.getenv("ALLOW_PRIVATE_WEBHOOK_URLS", "false").lower() == "true"
+    return allow_private
+
+
+def _non_public(ip) -> bool:
+    # is_global excludes private, loopback, link-local (cloud metadata), reserved,
+    # unspecified and carrier-grade NAT ranges; multicast is checked separately.
+    return not ip.is_global or ip.is_multicast
+
+
+class _PublicOnlyResolver(aiohttp.ThreadedResolver):
+    """Check the addresses aiohttp actually connects to.
+
+    validate_url resolves the host once and aiohttp resolves it again to connect,
+    so a DNS answer that changes in between (rebinding) would slip past it.
+    """
+
+    async def resolve(self, host, port=0, family=socket.AF_INET):
+        infos = await super().resolve(host, port, family)
+        for info in infos:
+            ip = ipaddress.ip_address(info["host"])
+            if _non_public(ip):
+                raise OSError(f"{host} resolves to a non-public address ({ip})")
+        return infos
+
+
 class WebhookService:
     """Service for managing and delivering webhooks"""
 
@@ -134,10 +163,7 @@ class WebhookService:
         if not parsed.hostname:
             raise WebhookUrlError("Webhook URL has no host")
 
-        if allow_private is None:
-            allow_private = os.getenv("ALLOW_PRIVATE_WEBHOOK_URLS", "false").lower() == "true"
-
-        if allow_private:
+        if _allow_private(allow_private):
             return url.strip()
 
         hostname = parsed.hostname
@@ -149,14 +175,7 @@ class WebhookService:
 
         for info in infos:
             ip = ipaddress.ip_address(info[4][0])
-            if (
-                ip.is_private
-                or ip.is_loopback
-                or ip.is_link_local          # 169.254.0.0/16 — cloud metadata
-                or ip.is_reserved
-                or ip.is_multicast
-                or ip.is_unspecified
-            ):
+            if _non_public(ip):
                 raise WebhookUrlError(
                     f"Webhook URL resolves to a non-public address ({ip}). "
                     "Enable 'Allow webhooks to private addresses' in Settings "
@@ -295,12 +314,19 @@ class WebhookService:
 
         for attempt in range(retry_count + 1):
             try:
-                async with aiohttp.ClientSession() as session:
+                connector = (
+                    None if _allow_private(allow_private)
+                    else aiohttp.TCPConnector(resolver=_PublicOnlyResolver())
+                )
+                async with aiohttp.ClientSession(connector=connector) as session:
                     async with session.post(
                         target_url,
                         headers=headers,
                         data=payload_json,
-                        timeout=aiohttp.ClientTimeout(total=30)
+                        timeout=aiohttp.ClientTimeout(total=30),
+                        # A redirect would send the request to a target that was
+                        # never validated, e.g. a 302 to the metadata endpoint.
+                        allow_redirects=False,
                     ) as response:
                         last_status_code = response.status
                         last_response_body = await response.text()

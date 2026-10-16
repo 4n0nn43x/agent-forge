@@ -68,6 +68,8 @@ export const uploadDocument = (agentId, file, onProgress) => {
 
 export const getDocuments = (agentId) => api.get(`/api/agents/${agentId}/documents`);
 
+export const clearDocuments = (agentId) => api.delete(`/api/agents/${agentId}/documents`);
+
 // Chat
 export const sendMessage = (agentId, message, conversationId = null) =>
   api.post(`/api/agents/${agentId}/chat`, {

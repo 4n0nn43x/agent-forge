@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 
 from .database import init_db, AsyncSessionLocal, DATABASE_URL
 from .api import agents, chat, api_keys, public, settings, webhooks
+from .api.api_keys import hash_legacy_keys
 from .settings_store import SettingsStore
 from .utils.rate_limit import close_limiter, get_limiter
 
@@ -41,6 +42,9 @@ async def lifespan(app: FastAPI):
     # Report provider configuration. These now live in the database and are
     # edited at /settings, so this is a snapshot, not a requirement check.
     async with AsyncSessionLocal() as db:
+        hashed = await hash_legacy_keys(db)
+        if hashed:
+            logger.info(f"Hashed {hashed} API key(s) stored in plaintext")
         config = await SettingsStore.resolve(db)
 
     if config.openrouter_api_key:

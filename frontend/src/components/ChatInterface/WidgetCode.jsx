@@ -30,9 +30,6 @@ const WidgetCode = ({ agentId, agentName }) => {
       const response = await api.getAPIKeys(agentId);
       const activeKeys = response.data.filter(key => key.is_active);
       setApiKeys(activeKeys);
-      if (activeKeys.length > 0) {
-        setSelectedKey(activeKeys[0].key);
-      }
     } catch (err) {
       console.error('Failed to load API keys:', err);
     }
@@ -208,19 +205,23 @@ print(data['response'])`;
       {/* API Key Selection */}
       <div className="mb-6 p-4 bg-subtle rounded-md border border-rule">
         <label className="block text-sm font-medium text-ink-soft mb-2">
-          Select API Key:
+          API key
         </label>
-        <select
+        {/* Keys are stored hashed, so the server cannot hand them back: paste the
+            one copied at creation. It stays in this page and is never sent. */}
+        <input
+          type="text"
           value={selectedKey}
-          onChange={(e) => setSelectedKey(e.target.value)}
-          className="input w-full"
-        >
-          {apiKeys.map((key) => (
-            <option key={key.id} value={key.key}>
-              {key.name} (Rate limit: {key.rate_limit}/hour)
-            </option>
-          ))}
-        </select>
+          onChange={(e) => setSelectedKey(e.target.value.trim())}
+          placeholder="af_… (shown once when the key was created)"
+          className="input w-full font-mono"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <p className="text-xs text-muted mt-2">
+          Active keys: {apiKeys.map((key) => key.name).join(', ')}. Lost it? Create a new
+          key in the API Keys tab.
+        </p>
       </div>
 
       {/* Widget Customization */}

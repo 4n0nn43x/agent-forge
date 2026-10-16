@@ -17,6 +17,7 @@ from ..models import (
     ConversationResponse,
     MessageResponse,
 )
+from ..utils.vector_store import EmbeddingModelMismatch
 from ..utils.webhook_service import WebhookService
 
 logger = logging.getLogger(__name__)
@@ -35,8 +36,9 @@ async def upload_document(
     """Upload a document to agent's knowledge base"""
     agent_manager = get_agent_manager()
     try:
-        # Validate file size (limit configured in Settings)
-        content = await file.read()
+        # Validate file size (limit configured in Settings). Read one byte past the
+        # limit so an oversized upload is detected without loading all of it.
+        content = await file.read(config.max_upload_bytes + 1)
 
         if len(content) > config.max_upload_bytes:
             raise HTTPException(
@@ -93,6 +95,8 @@ async def upload_document(
         # Raised deliberately above (size / type checks) — don't let the generic
         # handler below turn a 400 into a 500.
         raise
+    except EmbeddingModelMismatch as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -121,6 +125,13 @@ async def list_documents(agent_id: int, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error listing documents: {e}")
         raise HTTPException(status_code=500, detail="Error listing documents")
+
+
+@router.delete("/{agent_id}/documents")
+async def clear_documents(agent_id: int, db: AsyncSession = Depends(get_db)):
+    """Remove every document from an agent's knowledge base, vectors included"""
+    deleted = await get_agent_manager().delete_agent_documents(db, agent_id)
+    return {"deleted": deleted}
 
 
 @router.post("/{agent_id}/chat", response_model=ChatResponse)
@@ -152,6 +163,8 @@ async def chat_with_agent(
 
     except HTTPException:
         raise
+    except EmbeddingModelMismatch as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

@@ -22,6 +22,7 @@ from ..models import (
 )
 from ..utils.rate_limit import get_limiter
 from ..utils.timeutils import utcnow
+from .api_keys import hash_api_key
 from .chat import queue_chat_webhooks
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ async def verify_api_key(
     api_key = authorization[len("Bearer "):].strip()
 
     # Find API key in database
-    result = await db.execute(select(APIKey).filter(APIKey.key == api_key))
+    result = await db.execute(select(APIKey).filter(APIKey.key == hash_api_key(api_key)))
     db_api_key = result.scalar_one_or_none()
 
     if not db_api_key:

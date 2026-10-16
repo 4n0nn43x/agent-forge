@@ -3,7 +3,8 @@ uvicorn[standard]>=0.27
 python-multipart>=0.0.9
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
-sqlalchemy>=2.0.0
+# [asyncio] pulls in greenlet, which SQLAlchemy 2.1 no longer installs by default
+sqlalchemy[asyncio]>=2.0.0
 aiosqlite>=0.19
 
 # LangChain ecosystem

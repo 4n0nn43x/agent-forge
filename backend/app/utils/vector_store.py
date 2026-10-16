@@ -9,6 +9,14 @@ from chromadb.config import Settings
 logger = logging.getLogger(__name__)
 
 
+class EmbeddingModelMismatch(RuntimeError):
+    """The collection was indexed with a different embedding model than the configured one.
+
+    Chroma only notices when the vector widths differ, and then with an opaque
+    error; with equal widths it silently returns unrelated chunks.
+    """
+
+
 class VectorStore:
     """Wrapper for ChromaDB vector store operations"""
 
@@ -51,18 +59,31 @@ class VectorStore:
                 collection = self.client.get_or_create_collection(
                     name=collection_name,
                     embedding_function=embedding_function,
+                    # Only applied when the collection is created: records which
+                    # model its vectors came from.
+                    metadata={"embedding_function": embedding_function.name()},
                 )
             else:
                 collection = self.client.get_or_create_collection(
                     name=collection_name,
                 )
 
-            logger.debug(f"Collection '{collection_name}' ready")
-            return collection
-
         except Exception as e:
             logger.error(f"Error creating collection for agent {agent_id}: {e}")
             raise
+
+        # Collections created before this check carry no record and are trusted.
+        indexed_with = (collection.metadata or {}).get("embedding_function")
+        if embedding_function and indexed_with and indexed_with != embedding_function.name():
+            raise EmbeddingModelMismatch(
+                f"This agent's documents were indexed with '{indexed_with}', but the "
+                f"embedding model is now '{embedding_function.name()}'. Clear the "
+                "agent's documents and upload them again, or switch the model back "
+                "in Settings."
+            )
+
+        logger.debug(f"Collection '{collection_name}' ready")
+        return collection
 
     def add_documents(
         self,

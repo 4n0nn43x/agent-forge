@@ -95,7 +95,7 @@ class APIKey(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     agent_id = Column(Integer, ForeignKey("agents.id"), nullable=False)
-    key = Column(String(64), unique=True, index=True, nullable=False)  # API key
+    key = Column(String(64), unique=True, index=True, nullable=False)  # SHA-256 of the API key
     name = Column(String(255), nullable=False)  # Human-readable name
     is_active = Column(Integer, default=1)  # 1 for active, 0 for disabled
     rate_limit = Column(Integer, default=100)  # Requests per hour
@@ -230,7 +230,8 @@ class DocumentUpload(BaseModel):
 
 class ChatMessage(BaseModel):
     """Schema for chat messages"""
-    message: str = Field(..., min_length=1)
+    # Bounds the prompt an API key holder can make the LLM read on every call.
+    message: str = Field(..., min_length=1, max_length=8000)
     conversation_id: Optional[str] = None
 
 
@@ -277,7 +278,7 @@ class APIKeyResponse(BaseModel):
     """Schema for API key response"""
     id: int
     agent_id: int
-    key: str
+    key: Optional[str] = None  # Only set in the creation response
     name: str
     is_active: bool
     rate_limit: int

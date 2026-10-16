@@ -1,5 +1,6 @@
 """Agent management and orchestration"""
 
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional
 import uuid
@@ -100,7 +101,11 @@ class AgentManager:
 
         # Process document
         logger.info(f"Processing document {filename} for agent {agent_id}")
-        doc_data = self.document_processor.process_document(filename, file_content)
+        # Parsing, embedding (a blocking HTTP call to Ollama) and Chroma are all
+        # synchronous; run them in a thread so one upload doesn't stall every request.
+        doc_data = await asyncio.to_thread(
+            self.document_processor.process_document, filename, file_content
+        )
 
         # Check if document already exists (by hash)
         result = await db.execute(
@@ -115,7 +120,7 @@ class AgentManager:
             return existing_doc
 
         # Chunk the text
-        chunks = chunk_text(doc_data["text"], chunk_size=1000, overlap=200)
+        chunks = await asyncio.to_thread(chunk_text, doc_data["text"], 1000, 200)
         logger.info(f"Created {len(chunks)} chunks from {filename}")
 
         # Prepare metadata for each chunk
@@ -138,7 +143,8 @@ class AgentManager:
 
         # Add to vector store
         logger.info(f"Adding {len(chunks)} chunks to vector store for agent {agent_id}")
-        self.vector_store.add_documents(
+        await asyncio.to_thread(
+            self.vector_store.add_documents,
             agent_id=agent_id,
             documents=chunks,
             metadatas=metadatas,
@@ -250,7 +256,8 @@ class AgentManager:
         if has_documents and self.rag_engine.should_use_rag(message, has_documents):
             # Query vector store
             logger.info(f"Querying vector store for agent {agent_id}")
-            query_results = self.vector_store.query(
+            query_results = await asyncio.to_thread(
+                self.vector_store.query,
                 agent_id=agent_id,
                 query_text=message,
                 n_results=5,
@@ -261,13 +268,14 @@ class AgentManager:
             context, sources = self.rag_engine.build_rag_context(query_results, max_chunks=5)
             logger.info(f"Retrieved {len(sources)} relevant chunks")
 
-        # Get conversation history
+        # The last 10 messages of history, fetched newest first then put back in order.
         result = await db.execute(
             select(Message)
             .where(Message.conversation_id == conversation.id)
-            .order_by(Message.timestamp.asc())
+            .order_by(Message.timestamp.desc(), Message.id.desc())
+            .limit(10)
         )
-        history = result.scalars().all()
+        history = list(reversed(result.scalars().all()))
 
         # Get LLM
         llm = self._get_llm(agent, config)
@@ -283,8 +291,7 @@ class AgentManager:
 
         messages_for_llm = [("system", system_message)]
 
-        # Add conversation history (limit to last 10 messages)
-        for msg in history[-10:]:
+        for msg in history:
             if msg.role == "user":
                 messages_for_llm.append(("human", msg.content))
             elif msg.role == "assistant":

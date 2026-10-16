@@ -339,7 +339,7 @@
           '</div>' +
           '<div class="log" part="log" role="log" aria-live="polite"></div>' +
           '<div class="compose">' +
-            '<textarea rows="1" placeholder="' + this.attr(c.placeholder) + '" aria-label="Message"></textarea>' +
+            '<textarea rows="1" maxlength="8000" placeholder="' + this.attr(c.placeholder) + '" aria-label="Message"></textarea>' +
             '<button class="send" data-act="send" aria-label="Send">' + this.svg('send') + '</button>' +
           '</div>' +
           '<div class="foot">Enter sends · Shift+Enter for a new line</div>' +

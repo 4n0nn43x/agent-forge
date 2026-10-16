@@ -334,6 +334,7 @@ const ChatInterface = () => {
                       onChange={(e) => setInput(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder="Type your message..."
+                      maxLength={8000}
                       className="flex-1 resize-none input"
                       rows={2}
                       disabled={sending}

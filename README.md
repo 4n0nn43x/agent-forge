@@ -325,7 +325,7 @@ DELETE /api/agents/{id}              # Delete agent
 # Documents
 POST /api/agents/{id}/documents      # Upload document
 GET  /api/agents/{id}/documents      # List documents
-DELETE /api/agents/{id}/documents/{doc_id}  # Delete document
+DELETE /api/agents/{id}/documents     # Remove all documents
 
 # Chat
 POST /api/agents/{id}/chat           # Send message
@@ -513,7 +513,8 @@ Visit `/widget-demo.html` for a live demo and more examples.
 4. Click **"Generate New API Key"**
 5. Give it a name (e.g., "Website Widget")
 6. Set allowed origins (optional, for security)
-7. Copy the generated key and use it in your widget
+7. Copy the generated key and use it in your widget. It is shown once: only a hash is
+   stored, so a lost key cannot be recovered, only replaced by a new one
 
 ### Security Best Practices
 

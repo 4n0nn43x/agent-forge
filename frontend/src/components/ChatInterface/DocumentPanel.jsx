@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { File, Upload, Loader2 } from 'lucide-react';
+import { File, Upload, Loader2, Trash2 } from 'lucide-react';
 import * as api from '../../services/api';
 import Alert from '../Common/Alert';
 
@@ -45,6 +45,19 @@ const DocumentPanel = ({ agentId }) => {
     setUploading(false);
     await loadDocuments();
     e.target.value = '';
+  };
+
+  const handleClear = async () => {
+    if (!window.confirm('Remove every document from this agent? The files are not kept, so you will need to upload them again.')) {
+      return;
+    }
+    try {
+      await api.clearDocuments(agentId);
+      setError(null);
+      await loadDocuments();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to clear documents');
+    }
   };
 
   const formatFileSize = (bytes) => {
@@ -132,6 +145,16 @@ const DocumentPanel = ({ agentId }) => {
           ))
         )}
       </div>
+
+      {documents.length > 0 && (
+        <button
+          onClick={handleClear}
+          className="mt-3 w-full text-sm text-danger hover:bg-danger-bg rounded p-2 flex items-center justify-center space-x-2"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Clear all documents</span>
+        </button>
+      )}
     </div>
   );
 };
