@@ -5,19 +5,41 @@ import axios from 'axios';
 // slash-less form, which costs a round trip and — behind a proxy that drops the
 // port from the Host header — sends the browser somewhere that isn't listening.
 
-// In production (Docker), VITE_API_URL will be undefined/empty
-// This makes axios use relative paths (e.g., /api/agents/)
-// which nginx will proxy to the backend
-const API_BASE_URL = import.meta.env.VITE_API_URL;
-
+// Always relative paths (e.g. /api/agents/): nginx proxies them in production,
+// the Vite dev server in development. The session cookie only works when the app
+// and the API share an origin, so the browser never calls the backend directly.
 const api = axios.create({
-  // Only set baseURL if VITE_API_URL is explicitly provided (dev mode)
-  // In production, omit baseURL entirely to use relative URLs
-  ...(API_BASE_URL && { baseURL: API_BASE_URL }),
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// A 401 means the session ended (expired, signed out elsewhere, password changed):
+// App listens for this and shows the sign-in screen.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && !error.config?.url?.startsWith('/api/auth/')) {
+      window.dispatchEvent(new Event('agentforge:signed-out'));
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth
+export const getAuthState = () => api.get('/api/auth/state');
+
+export const setupAdmin = (token, username, password) =>
+  api.post('/api/auth/setup', { token, username, password });
+
+export const login = (username, password) => api.post('/api/auth/login', { username, password });
+
+export const logout = () => api.post('/api/auth/logout');
+
+export const logoutOthers = () => api.post('/api/auth/logout-others');
+
+export const changePassword = (currentPassword, newPassword) =>
+  api.put('/api/auth/password', { current_password: currentPassword, new_password: newPassword });
 
 // Templates
 export const getTemplates = () => api.get('/api/agents/templates');

@@ -7,9 +7,10 @@ import SettingsPage from './components/Settings/SettingsPage';
 import ThemeToggle from './components/Common/ThemeToggle';
 import Mark from './components/Common/Mark';
 import Onboarding from './components/Onboarding/Onboarding';
+import AuthScreen from './components/Auth/AuthScreen';
 import useAgentStore from './store/agentStore';
 import * as api from './services/api';
-import { Plus } from 'lucide-react';
+import { LogOut, Plus } from 'lucide-react';
 
 const NAV = [
   { to: '/', label: 'Agents' },
@@ -20,15 +21,36 @@ function App() {
   const location = useLocation();
   const { fetchTemplates } = useAgentStore();
 
+  // Who is signed in, and whether the instance still needs its admin account.
+  // null while unknown, like `onboarding` below.
+  const [auth, setAuth] = useState(null);
+  const signedIn = Boolean(auth?.authenticated);
+
   // null while we don't know yet, so the app doesn't flash the empty dashboard
   // before the first-run flow takes over.
   const [onboarding, setOnboarding] = useState(null);
 
   useEffect(() => {
-    fetchTemplates();
-  }, [fetchTemplates]);
+    api
+      .getAuthState()
+      .then((response) => setAuth(response.data))
+      .catch(() => setAuth({ needs_setup: false, authenticated: false }));
+
+    // Any 401 from the API: the session is gone, back to the sign-in screen.
+    const onSignedOut = () => {
+      setAuth({ needs_setup: false, authenticated: false });
+      setOnboarding(null);
+    };
+    window.addEventListener('agentforge:signed-out', onSignedOut);
+    return () => window.removeEventListener('agentforge:signed-out', onSignedOut);
+  }, []);
 
   useEffect(() => {
+    if (signedIn) fetchTemplates();
+  }, [signedIn, fetchTemplates]);
+
+  useEffect(() => {
+    if (!signedIn) return;
     api
       .getOnboarding()
       .then((response) => setOnboarding(response.data))
@@ -42,12 +64,35 @@ function App() {
         );
         setOnboarding({ completed: true, unavailable: true });
       });
-  }, []);
+  }, [signedIn]);
 
   const dismissOnboarding = useCallback(
     () => setOnboarding((previous) => ({ ...previous, completed: true })),
     []
   );
+
+  const signOut = async () => {
+    try {
+      await api.logout();
+    } finally {
+      setAuth({ needs_setup: false, authenticated: false });
+      setOnboarding(null);
+    }
+  };
+
+  if (auth === null) {
+    return <div className="min-h-screen bg-paper" />;
+  }
+
+  if (!signedIn) {
+    return (
+      <AuthScreen
+        key={auth.needs_setup ? 'setup' : 'login'}
+        mode={auth.needs_setup ? 'setup' : 'login'}
+        onSignedIn={(username) => setAuth({ needs_setup: false, authenticated: true, username })}
+      />
+    );
+  }
 
   if (onboarding === null) {
     return <div className="min-h-screen bg-paper" />;
@@ -100,6 +145,14 @@ function App() {
 
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              <button
+                onClick={signOut}
+                className="p-2 rounded text-muted hover:text-ink hover:bg-subtle transition-colors"
+                title={`Sign out (${auth.username})`}
+                aria-label="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
               <Link to="/create" className="btn btn-primary">
                 <Plus className="w-4 h-4" />
                 <span>New agent</span>

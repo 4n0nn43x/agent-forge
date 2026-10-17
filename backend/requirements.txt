@@ -28,6 +28,9 @@ aiohttp>=3.9
 # Encryption for secrets stored in the settings table
 cryptography>=42.0
 
+# Admin password hashing (Argon2id), as recommended by the FastAPI docs
+pwdlib[argon2]>=0.2
+
 # Optional backends, both auto-detected:
 #   asyncpg -> DATABASE_URL=postgresql+asyncpg://...
 #   redis   -> REDIS_URL=redis://...  (shared API-key rate limiting)

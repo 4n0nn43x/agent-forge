@@ -100,9 +100,21 @@ cd agent-forge
 docker compose up -d --build
 ```
 
-3. **Configure it in the browser**
+3. **Create the admin account**
 
-Open http://localhost:3000/settings and fill in:
+The first start prints a one-time setup link in the logs:
+```bash
+docker compose logs agentforge | grep setup
+#   http://<this host>:3000/setup?token=...
+```
+Open it and choose a username and password. Only someone who can read the server
+logs can do this, so a stranger who finds a fresh instance on the network cannot
+claim it. A new link is printed at each restart until setup is done.
+
+4. **Configure it in the browser**
+
+The first-run flow then asks for your providers; later, everything is at
+http://localhost:3000/settings:
 
 | Setting | Value |
 |---|---|
@@ -111,7 +123,7 @@ Open http://localhost:3000/settings and fill in:
 
 Then hit **Test connection** to confirm both providers answer.
 
-4. **Access the application**
+5. **Access the application**
 - App and API: http://localhost:3000
 - API docs: http://localhost:3000/docs
 
@@ -136,10 +148,31 @@ under the data directory on first run.
 | `REDIS_URL` | *(unset)* | Shares the API-key rate limiter across workers |
 | `CORS_ORIGINS` | *(empty = any)* | Allowlist; empty is what the widget needs |
 | `SECRET_KEY` | auto-generated | Encryption key for stored secrets |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | *(unset)* | Create the admin without the setup link (headless installs); ignored once an admin exists |
 | `LOG_LEVEL` / `DEBUG` | `INFO` / `False` | |
 
 Environment variables still act as a fallback for any UI setting, so an
 orchestrator can inject values without a UI round-trip.
+
+### Admin access
+
+Everything except the public API (`/api/v1/public`) requires the admin to be
+signed in. Sessions are an HttpOnly cookie, marked `Secure` whenever the app is
+reached over HTTPS (also through a TLS reverse proxy in front of the container),
+and end after 7 days unused or 30 days in any case. Writes from another site are
+refused, and the admin API sends no CORS headers. Five sign-in attempts for an
+account from one address in 15 minutes pause further attempts from that address
+(20 per address for all accounts), for up to 15 minutes.
+
+Behind your own reverse proxy (Traefik, Caddy...), let the app see the real
+client address, or every visitor shares the proxy's limit: set
+`FORWARDED_ALLOW_IPS=127.0.0.1,<proxy address>`. Keep `127.0.0.1`, which is the
+container's own nginx; `*` also works if only the proxy can reach the container.
+
+Locked out? Reset the password from the server; every session is signed out:
+```bash
+docker exec -it agentforge python -m app.cli reset-password
+```
 
 ### Reusing an existing PostgreSQL / Redis
 

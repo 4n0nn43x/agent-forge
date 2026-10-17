@@ -142,6 +142,26 @@ class Setting(Base):
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
+class User(Base):
+    """Admin account. The first one is created at setup, with id 1."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(64), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)  # Argon2, via pwdlib
+    created_at = Column(DateTime, default=utcnow)
+
+
+class UserSession(Base):
+    """A login. The cookie carries a random token; only its SHA-256 is stored."""
+    __tablename__ = "sessions"
+
+    token_hash = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=utcnow)
+    last_seen_at = Column(DateTime, default=utcnow)
+
+
 class WebhookLog(Base):
     """Log of webhook deliveries"""
     __tablename__ = "webhook_logs"

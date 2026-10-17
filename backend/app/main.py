@@ -3,13 +3,15 @@
 import os
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from .database import init_db, AsyncSessionLocal, DATABASE_URL
 from .api import agents, chat, api_keys, public, settings, webhooks
+from .api import auth as auth_routes
 from .api.api_keys import hash_legacy_keys
+from .auth import bootstrap as bootstrap_admin, require_admin
 from .settings_store import SettingsStore
 from .utils.rate_limit import close_limiter, get_limiter
 
@@ -45,6 +47,7 @@ async def lifespan(app: FastAPI):
         hashed = await hash_legacy_keys(db)
         if hashed:
             logger.info(f"Hashed {hashed} API key(s) stored in plaintext")
+        await bootstrap_admin(db)
         config = await SettingsStore.resolve(db)
 
     if config.openrouter_api_key:
@@ -80,10 +83,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS.
+# Configure CORS, for the public API only.
 # CORS_ORIGINS was previously declared everywhere but never read. When it is set
 # we honour it; when it is not we fall back to "*" so that the embeddable widget
-# keeps working from arbitrary third-party sites.
+# keeps working from arbitrary third-party sites. The admin API is only ever
+# called by the app itself, from its own origin, so it sends no CORS headers.
 _cors_origins = [
     origin.strip()
     for origin in os.getenv("CORS_ORIGINS", "").split(",")
@@ -98,23 +102,43 @@ if _cors_origins == ["*"]:
 else:
     logger.info(f"CORS restricted to: {', '.join(_cors_origins)}")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
-)
+PUBLIC_API_PREFIX = "/api/v1/public"
 
-# Include routers
-app.include_router(agents.router)
-app.include_router(chat.router)
-app.include_router(api_keys.router)
+
+class PublicAPICORS:
+    """CORSMiddleware is global; this applies it to the public API alone."""
+
+    def __init__(self, app):
+        self.app = app
+        self.cors = CORSMiddleware(
+            app,
+            allow_origins=_cors_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+            allow_headers=["*"],
+            expose_headers=["*"],
+            max_age=3600,
+        )
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["path"].startswith(PUBLIC_API_PREFIX):
+            await self.cors(scope, receive, send)
+        else:
+            await self.app(scope, receive, send)
+
+
+app.add_middleware(PublicAPICORS)
+
+# Include routers. Everything but the public API and the auth routes themselves
+# requires a signed-in admin.
+admin_only = [Depends(require_admin)]
+app.include_router(auth_routes.router)
 app.include_router(public.router)
-app.include_router(settings.router)
-app.include_router(webhooks.router)
+app.include_router(agents.router, dependencies=admin_only)
+app.include_router(chat.router, dependencies=admin_only)
+app.include_router(api_keys.router, dependencies=admin_only)
+app.include_router(settings.router, dependencies=admin_only)
+app.include_router(webhooks.router, dependencies=admin_only)
 
 
 @app.get("/")

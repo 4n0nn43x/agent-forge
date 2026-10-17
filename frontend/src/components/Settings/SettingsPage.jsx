@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { getSettings, testSettings, updateSettings } from '../../services/api';
 import LoadingSpinner from '../Common/LoadingSpinner';
+import AccountSection from './AccountSection';
 
 // Empty-string secrets are dropped by the API (an untouched masked field must not
 // wipe the stored value), so clearing one needs this explicit sentinel.
@@ -342,6 +343,8 @@ const SettingsPage = () => {
           </div>
         </section>
       )}
+
+      <AccountSection />
     </div>
   );
 };

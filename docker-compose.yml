@@ -40,6 +40,14 @@ services:
 
       # Generated under /app/data on first run if unset.
       - SECRET_KEY=${SECRET_KEY:-}
+
+      # Behind your own reverse proxy: "127.0.0.1,<proxy address>" (keep 127.0.0.1,
+      # the in-container nginx), so sign-in limits apply per visitor.
+      - FORWARDED_ALLOW_IPS=${FORWARDED_ALLOW_IPS:-127.0.0.1}
+
+      # Optional: create the admin without the setup link printed in the logs.
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     extra_hosts:
       # Lets the container reach an Ollama daemon running on the host (Linux).
       # Configure the endpoint itself in Settings: http://host.docker.internal:11434
